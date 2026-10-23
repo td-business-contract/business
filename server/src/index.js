@@ -89,7 +89,7 @@ app.use((err, req, res, _next) => {
   const status = err.status || (err.type === 'entity.too.large' ? 413 : 500);
   if (status >= 500) console.error(`[${req.method} ${req.originalUrl}]`, err);
   if (err.code === '23505') return res.status(409).json({ error: 'Elemento duplicato (email già presente)' });
-  if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: `File troppo grande (max ${config.maxUploadMb} MB)` });
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: `File troppo grande (max ${req.path.includes('/import') ? config.maxImportMb : config.maxUploadMb} MB)` });
   res.status(status).json({ error: status >= 500 ? 'Errore interno del server' : err.message, code: err.code, details: err.details });
 });
 

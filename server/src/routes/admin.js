@@ -8,6 +8,9 @@ import { requireAdmin, requireManager, USER_COLS } from '../lib/access.js';
 import { getSettings, DEFAULT_SETTINGS } from '../lib/rules.js';
 import { config } from '../config.js';
 import { pdfAvailable } from '../lib/docgen.js';
+import multer from 'multer';
+import os from 'node:os';
+import { importPackage } from '../lib/importer.js';
 
 const r = Router();
 
@@ -144,6 +147,23 @@ r.get('/audit', requireAdmin, ah(async (req, res) => {
   const limit = Math.min(500, Number(req.query.limit || 200));
   res.json(await many(`SELECT a.id, a.action, a.entity, a.entity_id, a.data, a.ip, a.at, u.full_name AS user_name
     FROM audit_log a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.at DESC LIMIT $1`, [limit]));
+}));
+
+// ---------------- Importazione dello status quo (pacchetti ZIP) ----------------
+const importUpload = multer({ storage: multer.diskStorage({ destination: os.tmpdir(), filename: (_req, _file, cb) => cb(null, `td-import-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.zip`) }), limits: { fileSize: config.maxImportMb * 1024 * 1024, files: 1 } });
+
+r.post('/import', requireAdmin, importUpload.single('package'), ah(async (req, res) => {
+  if (!req.file) throw bad('Carica un pacchetto ZIP');
+  const dryRun = String(req.body.dry_run || '') === '1';
+  const result = await importPackage(req.file.path, { userId: req.user.id, dryRun, filename: req.file.originalname });
+  const summary = { counts: result.counts, errors: result.errors, ok: result.ok, items: result.items.length };
+  await q('INSERT INTO import_runs(filename, dry_run, user_id, summary) VALUES ($1,$2,$3,$4)', [req.file.originalname, dryRun, req.user.id, JSON.stringify(summary)]);
+  await audit(req, dryRun ? 'IMPORT_DRY_RUN' : 'IMPORT_RUN', 'import', req.file.originalname, summary);
+  res.json({ filename: req.file.originalname, ...result });
+}));
+
+r.get('/import/runs', requireAdmin, ah(async (_req, res) => {
+  res.json(await many(`SELECT i.id, i.filename, i.dry_run, i.summary, i.at, u.full_name AS user_name FROM import_runs i LEFT JOIN users u ON u.id=i.user_id ORDER BY i.at DESC LIMIT 50`));
 }));
 
 export default r;

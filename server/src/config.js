@@ -12,6 +12,8 @@ export const config = {
   sessionHours: Number(env.SESSION_HOURS || 10),
   requireTotpForAdmins: (env.REQUIRE_TOTP_FOR_ADMINS || 'true') === 'true',
   maxUploadMb: Number(env.MAX_UPLOAD_MB || 40),
+  // pacchetti di importazione dello status quo (ZIP con manifest e documenti)
+  maxImportMb: Number(env.MAX_IMPORT_MB || 400),
   sofficeBin: env.SOFFICE_BIN || 'soffice',
   entra: {
     tenantId: env.ENTRA_TENANT_ID || '',

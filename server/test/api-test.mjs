@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import PizZip from 'pizzip';
 const BASE = process.argv[2] || 'http://localhost:3000';
 const EMAIL = process.env.SEED_ADMIN_EMAIL || 'francesco.epifani@toscanadiagnostica.it';
 const PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Password-Temporanea-1';
@@ -44,7 +45,7 @@ for (const [role, name] of [['SERVICE', 'Service Manager'], ['RETAIL', 'Retail M
 }
 ok('creati i cinque profili (password temporanee restituite)');
 const adminCookie = cookie;
-async function loginAs(role) { cookie = ''; const u = users[role]; const res = await api('POST', '/auth/login', { email: u.email, password: u.temp_password }); if (res.onboarding) await api('POST', '/auth/change-password', { currentPassword: u.temp_password, newPassword: `Nuova-${role}-Password-1` }); u.pwd = `Nuova-${role}-Password-1`; }
+async function loginAs(role) { cookie = ''; const u = users[role]; const pw = u.pwd || u.temp_password; const res = await api('POST', '/auth/login', { email: u.email, password: pw }); if (res.onboarding) await api('POST', '/auth/change-password', { currentPassword: pw, newPassword: `Nuova-${role}-Password-1` }); u.pwd = `Nuova-${role}-Password-1`; }
 
 // ---------- anagrafica partner ----------
 const host = await api('POST', '/partners', { name: 'Poliambulatorio Esempio S.r.l.', vat: '01234567890', tax_code: '01234567890', street: 'Via di Prato, 26', zip: '50041', city: 'Calenzano', prov: 'FI', pec: 'esempio@pec.it', legal_rep: 'Mario Rossi', signer: 'Mario Rossi', signer_role: 'Amministratore Unico', email: 'info@esempio.it', phone: '055 000000', sdi: 'ABCDEFG', pay_terms: '30 gg fm', bank_name: 'Banca Esempio', iban: 'IT60X0542811101000000123456' });
@@ -153,7 +154,52 @@ cred = await api('GET', `/contracts/${sv.id}/credentials?reveal=1`); assert(cred
 cookie = adminCookie;
 await api('DELETE', `/contracts/${own.id}`); ok('bozza eliminata dal Superamministratore');
 
+
+// ================= importazione dello status quo =================
+console.log('Importazione');
+const pdfBytes = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF');
+const mkZip = (contracts) => {
+  const z = new PizZip();
+  const partners = [
+    { key: 'imp-host', name: 'Struttura Importata S.r.l.', vat: '33445566778', street: 'Via Montalese, 653', zip: '59013', city: 'Montemurlo', prov: 'PO', pec: 'struttura@pec.it', legal_rep: 'Piera Esempio' },
+    { key: 'imp-cli', name: 'Cliente Importato S.r.l.', vat: '44556677889', street: 'Via Udine, 56', zip: '59100', city: 'Prato', prov: 'PO', pec: 'cliente@pec.it', sdi: 'M5UXCR1' },
+  ];
+  for (const c of contracts) for (const f of [...(c.files || []), ...((c.dossier && c.dossier.files) || [])]) if (!f.path.includes('manca')) z.file(f.path, f.path.endsWith('.xlsx') ? Buffer.from('xlsx') : pdfBytes);
+  z.file('manifest.json', JSON.stringify({ version: 1, generated: '2026-10-23', partners, contracts }));
+  return z.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+};
+const impContracts = [
+  { key: 'SRV-importato', kind: 'SRV', partner_key: 'imp-cli', title: 'Cliente Importato S.r.l.', status: 'ATTIVO', proposal_date: '2026-05-21', start_date: '2026-09-01', signed_at: '2026-07-13', notes: 'Importato', data: { site_name: 'Cliente Importato S.r.l.', payment_terms: 'Bonifico 30 gg fm', pickup: { days: [{ mode: 'FISSO', time_from: '10:30', time_to: null }] } },
+    files: [{ path: 'files/SRV-importato/001_contratto firmato.pdf', category: 'FIRMATO' }, { path: 'files/SRV-importato/002_listino.xlsx', category: 'LISTINO_XLSX' }], credentials: { portal_url: 'https://referti.toscanadiagnostica.it', username: 'SER0099', password: 'ABC.123.DEF', notes: 'test' } },
+  { key: 'PP-importato', kind: 'PP', partner_key: 'imp-host', title: 'Punto Prelievi Importato', status: 'ATTIVO', proposal_date: '2026-03-16', start_date: '2026-06-01', signed_at: '2026-06-09', data: { site: { street: 'Via Montalese, 653', zip: '59013', city: 'Montemurlo', prov: 'PO' }, fee: { items: [{ kind: 'PERCENT', percent: 33, base: 'PUNTO_PRELIEVI' }] }, services: { nursing: 'TD', reception: 'HOST' }, duration_years: 3 },
+    files: [{ path: 'files/PP-importato/001_contratto.pdf', category: 'FIRMATO' }], dossier: { status: 'AUTORIZZATO', submitted_at: '2026-06-09', authorized_at: '2026-07-02', authorization_ref: 'SUAP test', files: [{ path: 'files/PP-importato/002_modello5.pdf', doc_key: 'MODELLO_5' }, { path: 'files/PP-importato/003_autorizzazione.pdf', doc_key: 'AUTORIZZAZIONE', label: 'Atto' }] } },
+  { key: 'SRV-bozza', kind: 'SRV', partner_key: 'imp-cli', status: 'BOZZA', proposal_date: '2026-05-21', data: {}, files: [] },
+];
+const impForm = (buf, dry) => { const fd = new FormData(); fd.append('dry_run', dry ? '1' : '0'); fd.append('package', new Blob([buf], { type: 'application/zip' }), 'pacchetto-test.zip'); return fd; };
+const dry = await api('POST', '/import', null, impForm(mkZip(impContracts), true));
+
+assert(dry.ok && dry.dryRun && dry.counts.contracts === 3 && dry.counts.partners === 2 && dry.counts.files === 3 && dry.counts.dossier_files === 2, 'verifica pacchetto'); ok(`verifica pacchetto: ${dry.counts.contracts} contratti da creare, ${dry.counts.files + dry.counts.dossier_files} file`);
+const badPkg = await api('POST', '/import', null, impForm(mkZip([{ ...impContracts[0], files: [{ path: 'files/x/manca.pdf', category: 'FIRMATO' }] }]), true));
+assert(!badPkg.ok && badPkg.errors.length === 1, 'pacchetto con file mancante'); ok(`pacchetto con file mancante segnalato: ${badPkg.errors[0]}`);
+const imp = await api('POST', '/import', null, impForm(mkZip(impContracts), false));
+assert(imp.ok && imp.counts.contracts === 3 && imp.counts.partners === 2 && imp.counts.credentials === 1, 'importazione'); ok(`importazione: ${imp.counts.contracts} contratti, ${imp.counts.partners} partner, ${imp.counts.files + imp.counts.dossier_files} file, ${imp.counts.credentials} credenziali`);
+const impSrv = imp.items.find((i) => i.key === 'SRV-importato'); const impPp = imp.items.find((i) => i.key === 'PP-importato'); const impBz = imp.items.find((i) => i.key === 'SRV-bozza');
+assert(impSrv.protocol && impPp.protocol && !impBz.protocol, 'protocolli assegnati ai non bozza'); ok(`protocolli: ${impSrv.protocol}, ${impPp.protocol}; bozza senza protocollo`);
+const ic = await api('GET', `/contracts/${impSrv.id}`); assert(ic.status === 'ATTIVO' && ic.signed_at.startsWith('2026-07-13') && ic.files.length === 2 && ic.data.price_list_file === 'listino.xlsx' && ic.events.some((e) => e.kind === 'IMPORTATO'), 'contratto importato'); ok('contratto Service importato: attivo, firmato, listino, cronologia');
+const icred = await api('GET', `/contracts/${impSrv.id}/credentials?reveal=1`); assert(icred.password === 'ABC.123.DEF' && icred.username === 'SER0099', 'credenziali importate cifrate'); ok('credenziali importate e rivelabili');
+const ifx = (await api('GET', `/dossiers/${impPp.id}`)).dossier; assert(ifx.status === 'AUTORIZZATO' && ifx.rows.find((r) => r.key === 'MODELLO_5').status === 'CARICATO' && ifx.rows.find((r) => r.key === 'AUTORIZZAZIONE').files.length === 1, 'fascicolo importato'); ok(`fascicolo importato: autorizzato, ${ifx.pct}% completo`);
+const again = await api('POST', '/import', null, impForm(mkZip(impContracts), false));
+assert(again.ok && again.counts.contracts === 0 && again.counts.contracts_skipped === 3 && again.counts.partners === 0, 'idempotenza'); ok('secondo caricamento dello stesso pacchetto: nulla duplicato');
+const appendPkg = mkZip([{ ...impContracts[0], append: true, files: [...impContracts[0].files, { path: 'files/SRV-importato/003_nota integrativa.pdf', category: 'ALTRO' }] }]);
+const app1 = await api('POST', '/import', null, impForm(appendPkg, false));
+assert(app1.ok && app1.counts.contracts === 0 && app1.counts.contracts_appended === 1 && app1.counts.files === 1, 'integrazione');
+const appFiles = await api('GET', `/contracts/${impSrv.id}`);
+assert(appFiles.files.length === 3 && appFiles.files.some((f) => f.filename === 'nota integrativa.pdf'), 'file integrato presente, nessun duplicato');
+ok('pacchetto di integrazione (append): aggiunto solo il file nuovo allo stesso contratto');
+const runs = await api('GET', '/import/runs'); assert(runs.length === 5, 'registro importazioni'); ok(`registro importazioni: ${runs.length} esecuzioni`);
+await loginAs('SERVICE'); await expectFail(api('POST', '/import', null, impForm(mkZip([]), true)), 'Service Manager importa'); cookie = adminCookie;
+
 // ================= cruscotto e registro =================
-const st = await api('GET', '/stats/summary'); assert(st.dossiers.length === 2 && st.byKind.length >= 4, 'statistiche'); ok(`cruscotto: ${st.byKind.length} combinazioni tipo/stato, ${st.dossiers.length} fascicoli`);
+const st = await api('GET', '/stats/summary'); assert(st.dossiers.length === 3 && st.byKind.length >= 4, 'statistiche'); ok(`cruscotto: ${st.byKind.length} combinazioni tipo/stato, ${st.dossiers.length} fascicoli`);
 const au = await api('GET', '/audit?limit=50'); assert(au.length >= 20, 'registro'); ok(`registro attività: ${au.length} voci`);
 console.log(`\nCollaudo completato: ${step} passi superati. File generati in ${OUT}`);

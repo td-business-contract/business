@@ -123,7 +123,7 @@ r.get('/', ah(async (req, res) => {
 r.get('/:id', ah(async (req, res) => res.json(await loadContract(Number(req.params.id)))));
 
 // ---------------- Creazione e modifica ----------------
-function validateData(kind, data) {
+export function validateData(kind, data) {
   return parse(DATA_SCHEMA[kind], data || {});
 }
 
@@ -164,7 +164,7 @@ r.put('/:id', ah(async (req, res) => {
 }));
 
 // ---------------- Generazione del documento (DOCX + PDF) ----------------
-async function nextProtocol(kind, year, s, client) {
+export async function nextProtocol(kind, year, s, client) {
   const row = (await client.query('INSERT INTO protocol_counters(kind, year, last) VALUES ($1,$2,1) ON CONFLICT (kind, year) DO UPDATE SET last=protocol_counters.last+1 RETURNING last', [kind, year])).rows[0];
   return `${s[`protocol_prefix_${kind}`] || kind}-${year}-${String(row.last).padStart(4, '0')}`;
 }

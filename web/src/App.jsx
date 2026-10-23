@@ -15,6 +15,7 @@ import Dossiers from './pages/Dossiers.jsx';
 import Users from './pages/Users.jsx';
 import Settings from './pages/Settings.jsx';
 import Audit from './pages/Audit.jsx';
+import Import from './pages/Import.jsx';
 import Profile from './pages/Profile.jsx';
 
 function Shell() {
@@ -48,6 +49,7 @@ function Shell() {
             <L to="/utenti" icon="users">Utenti</L>
             <L to="/impostazioni" icon="gear">Impostazioni</L>
             <L to="/audit" icon="shield">Registro attività</L>
+            <L to="/importazione" icon="upload">Importazione</L>
           </>}
         </nav>
         <div className="me">
@@ -77,6 +79,7 @@ function Shell() {
           {admin && <Route path="/utenti" element={<Users />} />}
           {admin && <Route path="/impostazioni" element={<Settings />} />}
           {admin && <Route path="/audit" element={<Audit />} />}
+          {admin && <Route path="/importazione" element={<Import />} />}
           <Route path="/profilo" element={<Profile />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

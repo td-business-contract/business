@@ -13,7 +13,8 @@ Webapp per la contrattualistica B2B di Toscana Diagnostica: Punti Prelievo (cont
 3. Generazione del documento in DOCX e PDF dal format aziendale, con protocollo progressivo per sezione e anno (PP-2026-0001, SRV-2026-0001, MDL-2026-0001) e numero di versione. Il documento si firma con il partner fuori dall'app; la copia sottoscritta (PDF) si carica e porta il contratto in stato Firmato. Nessun invio automatico di email.
 4. Service e Medicina del Lavoro: caricamento del listino dell'offerta in XLSX e PDF; credenziali di accesso al portale del cliente, password cifrata AES-256-GCM, visualizzabile solo dai manager della sezione e con registrazione di ogni visualizzazione.
 5. Punti Prelievo: fascicolo di autorizzazione sanitaria (L.R. Toscana 51/2009) con 22 documenti in catalogo. L'app genera dai format aziendali Modello 5 (con autocertificazione ex A23), Modello 6, Relazione operativa (orari, note alle liste, elenco personale e strumentazione), Relazione attività non insudicianti, Collegamento funzionale, Dichiarazione sporco/pulito, Atto di condivisione procedure con la struttura ospitante, DUVRI e DVR (bozze da validare con il RSPP), Elenco del personale, Inventario della strumentazione. Le liste di autovalutazione A, B e B1.1 sono precaricate con le risposte e i riferimenti SGI del punto prelievi di Calenzano, si modificano requisito per requisito e si esportano in XLSX nel tracciato regionale. Si caricano planimetrie, relazione tecnica, disponibilità dei locali, gestione dei farmaci, dichiarazioni di conformità degli impianti, documenti ulteriori e, a chiusura, l'autorizzazione del Comune (che porta contratto e fascicolo in stato Autorizzato). Ogni documento generato può ricevere la versione firmata; il cruscotto mostra il completamento.
-6. Cruscotto, registro attività, profili e permessi, accesso Microsoft 365.
+6. Importazione dello status quo (Amministrazione > Importazione): pacchetti ZIP con manifest e documenti preparati fuori dall'app, caricati in verifica e poi per davvero, idempotenti (vedi sotto).
+7. Cruscotto, registro attività, profili e permessi, accesso Microsoft 365.
 
 ## Profili
 
@@ -27,7 +28,7 @@ Bozza → Proposta inviata (documento generato e protocollato) → Firmato (copi
 
 - server/: Node.js 22, Express, PostgreSQL 16. API REST, sessioni su database, CSRF, rate limit sul login, audit log. Documenti con docxtemplater sui template in server/src/templates, PDF con LibreOffice headless, XLSX con ExcelJS. File (documenti generati, firmati, listini, fascicolo) nel database (bytea). Credenziali dei portali cifrate con CREDENTIALS_KEY.
 - web/: React 18, Vite. Interfaccia in italiano, palette aziendale, responsive.
-- tools/: build_templates.py (python-docx, openpyxl, Pillow) costruisce i template dai format in tools/assets e il JSON delle liste di autovalutazione.
+- tools/: build_templates.py (python-docx, openpyxl, Pillow) costruisce i template dai format in tools/assets e il JSON delle liste di autovalutazione. tools/import/build_package.py costruisce i pacchetti ZIP di importazione da un dataset JSON e dalle cartelle dei documenti.
 - Dockerfile unico (frontend buildato e servito dal server, LibreOffice incluso). render.yaml per il deploy Blueprint.
 
 ## Deploy su Render (GitHub + Render)
@@ -59,7 +60,7 @@ DATABASE_URL=postgres://postgres:dev@localhost:5432/business SEED_ADMIN_EMAIL=tu
 cd web && npm install && npm run dev   # proxy delle API su :3000
 ```
 
-Collaudo end-to-end su database pulito (47 passi: tre flussi completi, fascicolo con generazione di tutti i documenti, permessi dei sei profili): `bash server/test/run-local.sh` con PostgreSQL locale e LibreOffice.
+Collaudo end-to-end su database pulito (58 passi: tre flussi completi, fascicolo con generazione di tutti i documenti, permessi dei sei profili, importazione con verifica, errore su file mancante, protocolli, credenziali, fascicolo e re-import idempotente): `bash server/test/run-local.sh` con PostgreSQL locale e LibreOffice.
 
 ## Template dei documenti
 
@@ -75,7 +76,18 @@ Tutte sotto /api, sessione via cookie, header `X-Requested-With: td-business` su
 - dossiers/:contractId (GET, PUT; docs/:key; checklists/:list e reset; generate/:key; generate-all; upload/:key; files/:fid)
 - contract-files/:id, dossier-files/:id (download)
 - stats/summary
+- import (POST multipart `package` + `dry_run`, solo Superamministratore), import/runs
+
+## Importazione dello status quo
+
+Amministrazione > Importazione carica un pacchetto ZIP con `manifest.json` e la cartella `files/<chiave contratto>/<nnn>_<nome>`. Il manifest elenca i partner (chiave `import_key`, dati MOD173) e i contratti (chiave, tipo PP/SRV/MDL/SEDE, stato, date di proposta e firma, dati specifici della sezione, file con categoria GENERATO_PDF, FIRMATO, LISTINO_XLSX, LISTINO_PDF, PLANIMETRIA, ASSICURAZIONE, ALTRO, credenziali del portale, fascicolo di autorizzazione con stato, date e file per chiave di catalogo). Lo schema completo è in server/src/lib/importer.js (zod).
+
+Regole: con "Solo verifica" il pacchetto viene validato per intero (partner, file presenti nello ZIP, chiavi del fascicolo, dati di sezione) senza scrivere nulla; l'importazione vera assegna il protocollo ai contratti non in bozza in ordine di tipo e data di proposta, crea i fascicoli con le ore e le checklist di default, cifra le credenziali e registra l'evento "Importato" su ogni contratto. Partner e contratti già presenti (stessa `import_key`) vengono saltati, quindi un pacchetto si può ricaricare senza duplicare; una voce con `"append": true` su un contratto già presente aggiunge solo i documenti mancanti (stesso nome e contenuto non vengono duplicati), così un contratto pesante può essere distribuito su più pacchetti. Ogni esecuzione è registrata in Esecuzioni precedenti e nel Registro attività. Limite di caricamento MAX_IMPORT_MB (default 400); i pacchetti vanno caricati nell'ordine in cui devono uscire i protocolli.
+
+Caricamento da shell: `BUSINESS_URL=https://business.toscanadiagnostica.it BUSINESS_EMAIL=... BUSINESS_PASSWORD='...' bash tools/import/upload.sh [--verify-only] pacchetti...` esegue login, verifica e importazione di ogni pacchetto nell'ordine dato e si ferma al primo errore (serve un Superamministratore con password locale, password temporanea già cambiata; con la verifica in due passaggi attiva lo script chiede il codice a 6 cifre; su Windows Git Bash o WSL).
+
+Costruzione dei pacchetti: `python3 tools/import/build_package.py --dataset dataset.json --out ./pacchetti --map "<cartella di origine>=<cartella locale>" --group SRV-A:SRV:a-l --group SRV-B:SRV:m-z --group PP:PP --group SEDE-MDL:SEDE,MDL`. Ogni gruppo produce uno ZIP con tutti i partner e i soli contratti del gruppo; con `--chunk-mb 9` il gruppo viene spezzato in pacchetti numerati sotto 9 MB (per caricamenti dal browser con limiti stretti), con `--skip-over-mb 9.5` i singoli file più grandi vengono esclusi ed elencati per il caricamento manuale. Il dataset dello status quo al 23/10/2026 (75 contratti, 73 partner, 486 documenti) è in tools/import/dataset.json; contiene le credenziali dei portali in chiaro, quindi non va pubblicato nel repository: è escluso da .gitignore insieme ai pacchetti.
 
 ## Prossime funzionalità (predisposte)
 
-Export XLSX dell'anagrafica B2B (MOD173) e del registro contratti; scadenzario (rinnovi taciti, disdette, scadenza del secret Entra); invio della proposta al partner via email da una casella business@ (il modulo mail di Finance è riusabile); importazione dei clienti Service da StudioLab (già censiti in Orders).
+Export XLSX dell'anagrafica B2B (MOD173) e del registro contratti; scadenzario (rinnovi taciti, disdette, scadenza del secret Entra); invio della proposta al partner via email da una casella business@ (il modulo mail di Finance è riusabile); importazione dei clienti Service da StudioLab (già censiti in Orders); export del manifest di importazione dal database per migrazioni.
