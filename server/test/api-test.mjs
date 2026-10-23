@@ -197,9 +197,17 @@ const appFiles = await api('GET', `/contracts/${impSrv.id}`);
 assert(appFiles.files.length === 3 && appFiles.files.some((f) => f.filename === 'nota integrativa.pdf'), 'file integrato presente, nessun duplicato');
 ok('pacchetto di integrazione (append): aggiunto solo il file nuovo allo stesso contratto');
 const runs = await api('GET', '/import/runs'); assert(runs.length === 5, 'registro importazioni'); ok(`registro importazioni: ${runs.length} esecuzioni`);
+await expectFail(api('POST', '/import/reset', { confirm: 'no' }), 'azzeramento senza parola di conferma');
 await loginAs('SERVICE'); await expectFail(api('POST', '/import', null, impForm(mkZip([]), true)), 'Service Manager importa'); cookie = adminCookie;
 
 // ================= cruscotto e registro =================
 const st = await api('GET', '/stats/summary'); assert(st.dossiers.length === 3 && st.byKind.length >= 4, 'statistiche'); ok(`cruscotto: ${st.byKind.length} combinazioni tipo/stato, ${st.dossiers.length} fascicoli`);
 const au = await api('GET', '/audit?limit=50'); assert(au.length >= 20, 'registro'); ok(`registro attività: ${au.length} voci`);
+// ================= azzeramento =================
+const rs = await api('POST', '/import/reset', { confirm: 'AZZERA' }); assert(rs.ok && rs.deleted.contracts > 0, 'azzeramento');
+const after = await api('GET', '/contracts'); const afterRuns = await api('GET', '/import/runs'); assert(after.length === 0 && afterRuns.length === 0, 'dati azzerati');
+const np = await api('POST', '/partners', { name: 'Dopo Azzeramento S.r.l.', vat: '99887766554', street: 'Via Nuova, 1', zip: '50100', city: 'Firenze', prov: 'FI' });
+const nc = await api('POST', '/contracts', { kind: 'SRV', partner_id: np.id, proposal_date: '2026-10-23', data: {} });
+await api('POST', `/contracts/${nc.id}/generate`).catch(() => null);
+ok(`azzeramento: ${rs.deleted.contracts} contratti e ${rs.deleted.partners} partner eliminati, contatori riportati a zero`);
 console.log(`\nCollaudo completato: ${step} passi superati. File generati in ${OUT}`);

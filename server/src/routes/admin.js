@@ -166,4 +166,18 @@ r.get('/import/runs', requireAdmin, ah(async (_req, res) => {
   res.json(await many(`SELECT i.id, i.filename, i.dry_run, i.summary, i.at, u.full_name AS user_name FROM import_runs i LEFT JOIN users u ON u.id=i.user_id ORDER BY i.at DESC LIMIT 50`));
 }));
 
+// Azzeramento dei dati contrattuali (partner, contratti, fascicoli, credenziali, contatori di protocollo, registro importazioni).
+// Serve per ripartire a pulito prima dell'importazione dello status quo. Utenti, impostazioni e registro attività restano.
+r.post('/import/reset', requireAdmin, ah(async (req, res) => {
+  const { confirm } = parse(z.object({ confirm: z.string() }), req.body);
+  if (confirm !== 'AZZERA') throw bad('Per confermare scrivi AZZERA');
+  const before = await one('SELECT (SELECT count(*) FROM contracts)::int AS contracts, (SELECT count(*) FROM partners)::int AS partners');
+  await q('DELETE FROM contracts');
+  await q('DELETE FROM partners');
+  await q('DELETE FROM protocol_counters');
+  await q('DELETE FROM import_runs');
+  await audit(req, 'DATA_RESET', 'system', null, before);
+  res.json({ ok: true, deleted: before });
+}));
+
 export default r;

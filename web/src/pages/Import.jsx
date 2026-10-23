@@ -15,6 +15,14 @@ export default function Import() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [resetWord, setResetWord] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
+  const doReset = async () => {
+    setResetBusy(true);
+    try { const r = await api.post('/import/reset', { confirm: resetWord }); toast(`Azzerati ${r.deleted.contracts} contratti e ${r.deleted.partners} partner`); setResetWord(''); setResult(null); runs.reload(); }
+    catch (e) { toast(e.message, 'err'); }
+    finally { setResetBusy(false); }
+  };
 
   // Upload con XMLHttpRequest per mostrare l'avanzamento del caricamento del pacchetto
   const run = () => {
@@ -74,6 +82,13 @@ export default function Import() {
           <tbody>{runs.data.map((r) => <tr key={r.id}><td className="small">{itDateTime(r.at)}</td><td>{r.user_name || '–'}</td><td>{r.filename}</td><td>{r.dry_run ? <Badge>verifica</Badge> : <Badge tone="green">importazione</Badge>}</td>
             <td className="small">{r.summary?.ok ? `${r.summary.counts?.contracts ?? 0} contratti, ${r.summary.counts?.files ?? 0} documenti, ${r.summary.counts?.contracts_skipped ?? 0} saltati${r.summary.counts?.contracts_appended ? `, ${r.summary.counts.contracts_appended} integrati` : ''}` : `${r.summary?.errors?.length ?? 0} errori`}</td></tr>)}</tbody></table></div>
       ) : <div className="empty">Nessuna importazione eseguita</div>}</Card>
+      <Card title="Azzeramento prima dello status quo">
+        <p className="small muted">Elimina tutti i contratti, i partner, i fascicoli, le credenziali e azzera i contatori di protocollo. Utenti, impostazioni e registro attività restano. Operazione irreversibile: serve solo per ripartire a pulito prima dell'importazione dello status quo. Per confermare scrivi AZZERA.</p>
+        <div className="row">
+          <input value={resetWord} onChange={(e) => setResetWord(e.target.value)} placeholder="AZZERA" style={{ maxWidth: 160 }} />
+          <button className="btn danger" disabled={resetWord !== 'AZZERA' || resetBusy} onClick={doReset}>{resetBusy ? 'Azzeramento…' : 'Azzera i dati contrattuali'}</button>
+        </div>
+      </Card>
     </div>
   );
 }

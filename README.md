@@ -60,7 +60,7 @@ DATABASE_URL=postgres://postgres:dev@localhost:5432/business SEED_ADMIN_EMAIL=tu
 cd web && npm install && npm run dev   # proxy delle API su :3000
 ```
 
-Collaudo end-to-end su database pulito (58 passi: tre flussi completi, fascicolo con generazione di tutti i documenti, permessi dei sei profili, importazione con verifica, errore su file mancante, protocolli, credenziali, fascicolo e re-import idempotente): `bash server/test/run-local.sh` con PostgreSQL locale e LibreOffice.
+Collaudo end-to-end su database pulito (60 passi: tre flussi completi, fascicolo con generazione di tutti i documenti, permessi dei sei profili, importazione con verifica, errore su file mancante, protocolli, credenziali, fascicolo e re-import idempotente): `bash server/test/run-local.sh` con PostgreSQL locale e LibreOffice.
 
 ## Template dei documenti
 
@@ -76,13 +76,13 @@ Tutte sotto /api, sessione via cookie, header `X-Requested-With: td-business` su
 - dossiers/:contractId (GET, PUT; docs/:key; checklists/:list e reset; generate/:key; generate-all; upload/:key; files/:fid)
 - contract-files/:id, dossier-files/:id (download)
 - stats/summary
-- import (POST multipart `package` + `dry_run`, solo Superamministratore), import/runs
+- import (POST multipart `package` + `dry_run`, solo Superamministratore), import/runs, import/reset (POST `confirm: AZZERA`)
 
 ## Importazione dello status quo
 
 Amministrazione > Importazione carica un pacchetto ZIP con `manifest.json` e la cartella `files/<chiave contratto>/<nnn>_<nome>`. Il manifest elenca i partner (chiave `import_key`, dati MOD173) e i contratti (chiave, tipo PP/SRV/MDL/SEDE, stato, date di proposta e firma, dati specifici della sezione, file con categoria GENERATO_PDF, FIRMATO, LISTINO_XLSX, LISTINO_PDF, PLANIMETRIA, ASSICURAZIONE, ALTRO, credenziali del portale, fascicolo di autorizzazione con stato, date e file per chiave di catalogo). Lo schema completo è in server/src/lib/importer.js (zod).
 
-Regole: con "Solo verifica" il pacchetto viene validato per intero (partner, file presenti nello ZIP, chiavi del fascicolo, dati di sezione) senza scrivere nulla; l'importazione vera assegna il protocollo ai contratti non in bozza in ordine di tipo e data di proposta, crea i fascicoli con le ore e le checklist di default, cifra le credenziali e registra l'evento "Importato" su ogni contratto. Partner e contratti già presenti (stessa `import_key`) vengono saltati, quindi un pacchetto si può ricaricare senza duplicare; una voce con `"append": true` su un contratto già presente aggiunge solo i documenti mancanti (stesso nome e contenuto non vengono duplicati), così un contratto pesante può essere distribuito su più pacchetti. Ogni esecuzione è registrata in Esecuzioni precedenti e nel Registro attività. Limite di caricamento MAX_IMPORT_MB (default 400); i pacchetti vanno caricati nell'ordine in cui devono uscire i protocolli.
+Regole: con "Solo verifica" il pacchetto viene validato per intero (partner, file presenti nello ZIP, chiavi del fascicolo, dati di sezione) senza scrivere nulla; l'importazione vera assegna il protocollo ai contratti non in bozza in ordine di tipo e data di proposta, crea i fascicoli con le ore e le checklist di default, cifra le credenziali e registra l'evento "Importato" su ogni contratto. Partner e contratti già presenti (stessa `import_key`) vengono saltati, quindi un pacchetto si può ricaricare senza duplicare; una voce con `"append": true` su un contratto già presente aggiunge solo i documenti mancanti (stesso nome e contenuto non vengono duplicati), così un contratto pesante può essere distribuito su più pacchetti. Ogni esecuzione è registrata in Esecuzioni precedenti e nel Registro attività. Limite di caricamento MAX_IMPORT_MB (default 400); i pacchetti vanno caricati nell'ordine in cui devono uscire i protocolli. In fondo alla pagina, l'azzeramento (parola di conferma AZZERA) elimina contratti, partner, fascicoli, credenziali, contatori di protocollo e registro importazioni per ripartire a pulito prima dello status quo; utenti, impostazioni e registro attività restano.
 
 Caricamento da shell: `BUSINESS_URL=https://business.toscanadiagnostica.it BUSINESS_EMAIL=... BUSINESS_PASSWORD='...' bash tools/import/upload.sh [--verify-only] pacchetti...` esegue login, verifica e importazione di ogni pacchetto nell'ordine dato e si ferma al primo errore (serve un Superamministratore con password locale, password temporanea già cambiata; con la verifica in due passaggi attiva lo script chiede il codice a 6 cifre; su Windows Git Bash o WSL).
 
