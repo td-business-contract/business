@@ -1,12 +1,13 @@
 # Toscana Diagnostica · Business
 
-Webapp per la contrattualistica B2B di Toscana Diagnostica: Punti Prelievo (contratto di appalto con la struttura ospitante e fascicolo di autorizzazione sanitaria), Service di Laboratorio (lettera di offerta TD-SGI-MOD230) e Medicina del Lavoro (lettera di offerta TD-SGI-MOD231). Destinata a business.toscanadiagnostica.it. Stesso stack e stessa interfaccia di Finance, Cash, Shipments, Orders e SGI.
+Webapp per la contrattualistica B2B di Toscana Diagnostica: Punti Prelievo (contratto di appalto con la struttura ospitante e fascicolo di autorizzazione sanitaria), Sedi TD in locazione (laboratorio, punti prelievo e centri polidiagnostici flagship intestati a Toscana Diagnostica, con contratto di locazione, allegati e fascicolo di autorizzazione), Service di Laboratorio (lettera di offerta TD-SGI-MOD230) e Medicina del Lavoro (lettera di offerta TD-SGI-MOD231). Destinata a business.toscanadiagnostica.it. Stesso stack e stessa interfaccia di Finance, Cash, Shipments, Orders e SGI.
 
 ## Cosa fa
 
 1. Anagrafica partner e clienti B2B sul tracciato TD-SGI-MOD173 (identificazione, riferimenti per il servizio e l'approvvigionamento, condizioni di pagamento e classificazione fiscale, banca). Un partner può avere più contratti.
 2. Per ogni sezione, una proposta con i dati specifici:
-   - Punti Prelievo: sede del Poliambulatorio ospitante (premesse del contratto), corrispettivo a percentuale e/o fisso con IVA (oltre IVA, inclusa, esente), durata, decorrenza, costi della sicurezza (Allegato 2).
+   - Punti Prelievo: sede del Poliambulatorio ospitante (premesse del contratto), ripartizione dei servizi (infermieristico e accettazione a Toscana Diagnostica o alla struttura ospitante, art. 3), corrispettivo come elenco di sotto-articoli 5.1.n (percentuale su una base a scelta con opzione SSR, importo fisso con causale, minimo garantito, condizione in testo libero, IVA per condizione), durata, decorrenza, costi della sicurezza (Allegato 2).
+   - Sedi TD in locazione: locatore, tipo di sede, canone con periodicità e IVA, deposito, durata, rinnovo, preavviso, ISTAT, spese, registrazione; contratto di locazione firmato (caricato, con protocollo SEDE-anno-n), planimetrie, assicurazioni, altri allegati; fascicolo di autorizzazione con DUVRI e atto di condivisione esclusi in automatico.
    - Service: sede operativa, Direttore Sanitario della struttura cliente, condizioni di vendita (PEC, SDI, esenzione IVA, pagamento, banca dall'anagrafica), logistica dei ritiri (Allegato 3, giorno per giorno), interfacciamento (Allegato 6), ruolo privacy e DPO (Allegato 8), sconto sul listino (Allegato 2).
    - Medicina del Lavoro: e-mail e contatto per gli appuntamenti, e-mail fatture, Medico del Lavoro ed e-mail per l'anticipo dei referti, condizioni di vendita, ruolo privacy (Allegato 3), sconto sul listino (Allegato 1).
 3. Generazione del documento in DOCX e PDF dal format aziendale, con protocollo progressivo per sezione e anno (PP-2026-0001, SRV-2026-0001, MDL-2026-0001) e numero di versione. Il documento si firma con il partner fuori dall'app; la copia sottoscritta (PDF) si carica e porta il contratto in stato Firmato. Nessun invio automatico di email.
@@ -58,7 +59,7 @@ DATABASE_URL=postgres://postgres:dev@localhost:5432/business SEED_ADMIN_EMAIL=tu
 cd web && npm install && npm run dev   # proxy delle API su :3000
 ```
 
-Collaudo end-to-end su database pulito (42 passi: tre flussi completi, fascicolo con generazione di tutti i documenti, permessi dei sei profili): `bash server/test/run-local.sh` con PostgreSQL locale e LibreOffice.
+Collaudo end-to-end su database pulito (47 passi: tre flussi completi, fascicolo con generazione di tutti i documenti, permessi dei sei profili): `bash server/test/run-local.sh` con PostgreSQL locale e LibreOffice.
 
 ## Template dei documenti
 

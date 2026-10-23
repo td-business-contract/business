@@ -23,7 +23,11 @@ export const KIND = {
   PP: { label: 'Punti Prelievo', one: 'Punto Prelievi', doc: 'Contratto di appalto', tone: 'teal', path: 'punti-prelievo' },
   SRV: { label: 'Service di Laboratorio', one: 'Service di Laboratorio', doc: 'Lettera di offerta (MOD230)', tone: 'blue', path: 'service' },
   MDL: { label: 'Medicina del Lavoro', one: 'Medicina del Lavoro', doc: 'Lettera di offerta (MOD231)', tone: 'mauve', path: 'medicina-del-lavoro' },
+  SEDE: { label: 'Sedi TD in locazione', one: 'Sede TD in locazione', doc: 'Contratto di locazione del locatore', tone: 'green', path: 'sedi' },
 };
+export const HAS_DOSSIER = (k) => k === 'PP' || k === 'SEDE';
+export const SITE_TYPE = { LABORATORIO: 'Laboratorio di Analisi', PUNTO_PRELIEVI: 'Punto Prelievi', CENTRO_POLIDIAGNOSTICO: 'Centro Polidiagnostico', ALTRO: 'Altra sede' };
+export const RENT_PERIOD = { MESE: 'al mese', TRIMESTRE: 'a trimestre', ANNO: 'all’anno' };
 export const KIND_BY_PATH = Object.fromEntries(Object.entries(KIND).map(([k, v]) => [v.path, k]));
 export const STATUS = {
   BOZZA: { label: 'Bozza', tone: 'grey' },
@@ -36,7 +40,7 @@ export const STATUS = {
 };
 export const DOSSIER_STATUS = { IN_CORSO: { label: 'In preparazione', tone: 'blue' }, PRESENTATO: { label: 'Presentato al Comune', tone: 'mauve' }, AUTORIZZATO: { label: 'Autorizzato', tone: 'green' } };
 export const DOC_STATUS = { MANCANTE: { label: 'Mancante', tone: 'red' }, GENERATO: { label: 'Generato, da firmare', tone: 'blue' }, COMPILATO: { label: 'Compilato', tone: 'blue' }, CARICATO: { label: 'Caricato', tone: 'green' }, NON_APPLICABILE: { label: 'Non applicabile', tone: 'grey' } };
-export const FILE_CAT = { GENERATO_DOCX: 'Documento generato (DOCX)', GENERATO_PDF: 'Documento generato (PDF)', FIRMATO: 'Contratto firmato', LISTINO_XLSX: 'Listino (XLSX)', LISTINO_PDF: 'Listino (PDF)', ALTRO: 'Altro' };
+export const FILE_CAT = { GENERATO_DOCX: 'Documento generato (DOCX)', GENERATO_PDF: 'Documento generato (PDF)', FIRMATO: 'Contratto firmato', LISTINO_XLSX: 'Listino (XLSX)', LISTINO_PDF: 'Listino (PDF)', PLANIMETRIA: 'Planimetria', ASSICURAZIONE: 'Assicurazione', ALTRO: 'Altro' };
 export const EVENT = { CREATO: 'Creato', MODIFICATO: 'Modificato', GENERATO: 'Proposta generata', FIRMATO: 'Firmato', ALLEGATO: 'File caricato', ALLEGATO_RIMOSSO: 'File rimosso', ATTIVO: 'Attivato', CESSATO: 'Cessato', ANNULLATO: 'Annullato', AUTORIZZATO: 'Autorizzato', CREDENZIALI: 'Credenziali', CREDENZIALI_VISUALIZZATE: 'Password visualizzata', FASCICOLO_GENERATO: 'Fascicolo: generato', FASCICOLO_CARICATO: 'Fascicolo: caricato', FASCICOLO_RIMOSSO: 'Fascicolo: rimosso' };
 export const DAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 export const FEE_VAT = { PIU_IVA: 'oltre IVA', IVA_INCLUSA: 'IVA inclusa', ESENTE: 'esente IVA art. 10' };

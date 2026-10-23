@@ -28,6 +28,6 @@ export function AuthProvider({ children }) {
 export const useAuth = () => useContext(AuthCtx);
 export const isAdmin = (u) => u?.role === 'ADMIN';
 export const isManager = (u) => ['ADMIN', 'SERVICE', 'RETAIL', 'MDL', 'HQS'].includes(u?.role);
-const KIND_ROLE = { PP: 'RETAIL', SRV: 'SERVICE', MDL: 'MDL' };
+const KIND_ROLE = { PP: 'RETAIL', SRV: 'SERVICE', MDL: 'MDL', SEDE: 'RETAIL' };
 export const canEditKind = (u, kind) => isAdmin(u) || KIND_ROLE[kind] === u?.role;
 export const canEditDossier = (u) => ['ADMIN', 'HQS', 'RETAIL'].includes(u?.role);

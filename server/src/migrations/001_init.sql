@@ -103,7 +103,7 @@ CREATE INDEX partners_vat_idx ON partners (vat);
 -- Contratti: PP = punto prelievi (appalto con la struttura ospitante), SRV = service di laboratorio, MDL = medicina del lavoro
 CREATE TABLE contracts (
   id             SERIAL PRIMARY KEY,
-  kind           TEXT NOT NULL CHECK (kind IN ('PP','SRV','MDL')),
+  kind           TEXT NOT NULL CHECK (kind IN ('PP','SRV','MDL','SEDE')),
   protocol       TEXT UNIQUE,
   status         TEXT NOT NULL DEFAULT 'BOZZA' CHECK (status IN ('BOZZA','PROPOSTA','FIRMATO','AUTORIZZATO','ATTIVO','CESSATO','ANNULLATO')),
   partner_id     INT NOT NULL REFERENCES partners(id),
@@ -128,7 +128,7 @@ CREATE INDEX contracts_partner_idx ON contracts (partner_id);
 CREATE TABLE contract_files (
   id          SERIAL PRIMARY KEY,
   contract_id INT NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
-  category    TEXT NOT NULL CHECK (category IN ('GENERATO_DOCX','GENERATO_PDF','FIRMATO','LISTINO_XLSX','LISTINO_PDF','ALTRO')),
+  category    TEXT NOT NULL CHECK (category IN ('GENERATO_DOCX','GENERATO_PDF','FIRMATO','LISTINO_XLSX','LISTINO_PDF','PLANIMETRIA','ASSICURAZIONE','ALTRO')),
   filename    TEXT NOT NULL,
   mime        TEXT NOT NULL,
   size        INT NOT NULL,
@@ -163,7 +163,7 @@ CREATE TABLE contract_events (
 );
 CREATE INDEX contract_events_idx ON contract_events (contract_id, at);
 
--- Fascicolo di autorizzazione sanitaria del punto prelievi (L.R. Toscana 51/2009): uno per contratto PP
+-- Fascicolo di autorizzazione sanitaria (L.R. Toscana 51/2009): uno per contratto PP e per sede TD in locazione
 CREATE TABLE dossiers (
   id              SERIAL PRIMARY KEY,
   contract_id     INT NOT NULL UNIQUE REFERENCES contracts(id) ON DELETE CASCADE,

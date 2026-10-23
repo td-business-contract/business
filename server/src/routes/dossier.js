@@ -18,7 +18,7 @@ const optDate = z.preprocess((v) => (v === '' || v === undefined ? null : v), z.
 
 async function loadDossier(contractId) {
   const d = await one('SELECT * FROM dossiers WHERE contract_id=$1', [contractId]);
-  if (!d) throw notFound('Fascicolo non trovato: riguarda solo i contratti di punto prelievi');
+  if (!d) throw notFound('Fascicolo non trovato: riguarda i punti prelievi e le sedi TD in locazione');
   const files = await many('SELECT f.id, f.doc_key, f.source, f.filename, f.mime, f.size, f.sha256, f.label, f.created_at, u.full_name AS uploaded_by_name FROM dossier_files f LEFT JOIN users u ON u.id=f.uploaded_by WHERE f.dossier_id=$1 ORDER BY f.created_at DESC', [d.id]);
   return { ...d, ...completeness(d, files), catalog: DOSSIER_DOCS };
 }

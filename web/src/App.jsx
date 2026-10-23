@@ -11,6 +11,7 @@ import ContractForm from './pages/ContractForm.jsx';
 import ContractDetail from './pages/ContractDetail.jsx';
 import Dossier from './pages/Dossier.jsx';
 import Partners from './pages/Partners.jsx';
+import Dossiers from './pages/Dossiers.jsx';
 import Users from './pages/Users.jsx';
 import Settings from './pages/Settings.jsx';
 import Audit from './pages/Audit.jsx';
@@ -33,13 +34,15 @@ function Shell() {
         <div className="brand"><img src="/logo-light.svg" alt="Toscana Diagnostica" /><div className="app">Business · Contratti</div></div>
         <nav>
           <L to="/" icon="home" end>Dashboard</L>
-          <div className="group">Sezioni</div>
-          <L to="/punti-prelievo" icon="pin" count={count('PP')}>Punti Prelievo</L>
-          <L to="/service" icon="truck" count={count('SRV')}>Service di Laboratorio</L>
-          <L to="/medicina-del-lavoro" icon="stetho" count={count('MDL')}>Medicina del Lavoro</L>
           <div className="group">Anagrafiche</div>
           <L to="/partner" icon="building">Partner e clienti B2B</L>
           <L to="/contratti" icon="archive">Tutti i contratti</L>
+          <L to="/fascicoli" icon="folder">Fascicoli autorizzazione</L>
+          <div className="group">Sezioni</div>
+          <L to="/punti-prelievo" icon="pin" count={count('PP')}>Punti Prelievo</L>
+          <L to="/sedi" icon="bank" count={count('SEDE')}>Sedi TD in locazione</L>
+          <L to="/service" icon="truck" count={count('SRV')}>Service di Laboratorio</L>
+          <L to="/medicina-del-lavoro" icon="stetho" count={count('MDL')}>Medicina del Lavoro</L>
           {admin && <>
             <div className="group">Amministrazione</div>
             <L to="/utenti" icon="users">Utenti</L>
@@ -63,6 +66,8 @@ function Shell() {
           <Route path="/punti-prelievo" element={<Contracts kind="PP" />} />
           <Route path="/service" element={<Contracts kind="SRV" />} />
           <Route path="/medicina-del-lavoro" element={<Contracts kind="MDL" />} />
+          <Route path="/sedi" element={<Contracts kind="SEDE" />} />
+          <Route path="/fascicoli" element={<Dossiers />} />
           <Route path="/contratti" element={<Contracts />} />
           {isManager(user) && <Route path="/contratti/nuovo/:kind" element={<ContractForm />} />}
           {isManager(user) && <Route path="/contratti/:id/modifica" element={<ContractForm />} />}

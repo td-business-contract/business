@@ -101,13 +101,13 @@ pp = await api('POST', `/contracts/${pp.id}/status`, { status: 'ATTIVO' }); ok('
 
 // ================= 2. SERVICE =================
 console.log('Service di Laboratorio');
-let sv = await api('POST', '/contracts', { kind: 'SRV', partner_id: clientSrv.id, proposal_date: '2026-10-23', data: { site_name: 'Laboratorio Cliente, sede di Livorno', site_address: 'Via Roma 1, Livorno', client_ds: 'dott. Carlo Bruni', vat_exemption: true, discount_percent: 35, pickup: { site: 'Sede di Livorno', street: 'Via Roma 1', city: 'Livorno', contact: 'Luca Verdi', phone: '333 1111111', email: 'luca@cliente.it', days: [{ mode: 'FISSO', time: '12:00' }, { mode: 'FISSO', time: '12:00' }, { mode: 'CHIAMATA', time: '' }, { mode: 'FISSO', time: '12:00' }, { mode: 'FISSO', time: '12:00' }, { mode: 'NO' }] }, interface_solution: 2, privacy: { role: 'TITOLARE', dpo_name: 'Avv. Dpo Cliente', dpo_contact: 'dpo@cliente.it' } } });
+let sv = await api('POST', '/contracts', { kind: 'SRV', partner_id: clientSrv.id, proposal_date: '2026-10-23', data: { site_name: 'Laboratorio Cliente, sede di Livorno', site_address: 'Via Roma 1, Livorno', client_ds: 'dott. Carlo Bruni', vat_exemption: true, pickup: { site: 'Sede di Livorno', street: 'Via Roma 1', city: 'Livorno', contact: 'Luca Verdi', phone: '333 1111111', email: 'luca@cliente.it', days: [{ mode: 'FISSO', time_from: '12:00' }, { mode: 'FISSO', time_from: '11:30', time_to: '12:30' }, { mode: 'CHIAMATA' }, { mode: 'FISSO', time_from: '12:00' }, { mode: 'FISSO', time_from: '12:00' }, { mode: 'NO' }] }, interface_solution: 2, privacy: { role: 'TITOLARE', dpo_name: 'Avv. Dpo Cliente', dpo_contact: 'dpo@cliente.it' } } });
 sv = await api('POST', `/contracts/${sv.id}/generate`); assert(sv.protocol.startsWith('SRV-2026-'), 'protocollo SRV'); ok(`offerta Service generata ${sv.protocol}`);
 await save(sv.files.find((f) => f.category === 'GENERATO_PDF').id, 'contract-files', 'SRV_offerta.pdf'); await save(sv.files.find((f) => f.category === 'GENERATO_DOCX').id, 'contract-files', 'SRV_offerta.docx');
 await expectFail(api('POST', `/contracts/${sv.id}/files`, null, formOf([{ name: 'listino.csv', mime: 'text/csv', data: Buffer.from('a;b') }], { category: 'LISTINO_XLSX' })), 'listino in formato non XLSX');
 sv = await api('POST', `/contracts/${sv.id}/files`, null, formOf([{ name: 'Listino_Service_2026.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', data: Buffer.from('PK\x03\x04 fake') }], { category: 'LISTINO_XLSX' }));
 sv = await api('POST', `/contracts/${sv.id}/files`, null, formOf([{ name: 'Listino_Service_2026.pdf', mime: 'application/pdf', data: Buffer.from('%PDF') }], { category: 'LISTINO_PDF' }));
-assert(sv.data.price_list_file === 'Listino_Service_2026.pdf', 'listino registrato'); ok('listino caricato in XLSX e PDF');
+assert(sv.data.price_list_file === 'Listino_Service_2026.xlsx, Listino_Service_2026.pdf', `listino registrato: ${sv.data.price_list_file}`); ok('listino caricato in XLSX e PDF');
 sv = await api('POST', `/contracts/${sv.id}/files`, null, formOf([{ name: 'Offerta_firmata.pdf', mime: 'application/pdf', data: Buffer.from('%PDF') }], { category: 'FIRMATO' })); assert(sv.status === 'FIRMATO', 'SRV firmato'); ok('offerta Service firmata');
 await api('PUT', `/contracts/${sv.id}/credentials`, { portal_url: 'https://portale.toscanadiagnostica.it', username: 'labcliente', password: 'S3greta!2026', notes: 'Consegnate al referente' });
 let cred = await api('GET', `/contracts/${sv.id}/credentials`); assert(cred.has_password && cred.password === undefined, 'password non in chiaro di default');
@@ -116,11 +116,25 @@ sv = await api('POST', `/contracts/${sv.id}/status`, { status: 'ATTIVO' }); ok('
 
 // ================= 3. MEDICINA DEL LAVORO =================
 console.log('Medicina del Lavoro');
-let md = await api('POST', '/contracts', { kind: 'MDL', partner_id: clientMdl.id, proposal_date: '2026-10-23', data: { service_email: 'hr@impresa.it', service_contact: 'Giulia Gialli', service_phone: '055 123456', invoice_email: 'fatture@impresa.it', doctor_name: 'dott. Medico Competente', doctor_email: 'mc@impresa.it', vat_exemption: false, discount_percent: 10, privacy: { role: 'TITOLARE' } } });
+let md = await api('POST', '/contracts', { kind: 'MDL', partner_id: clientMdl.id, proposal_date: '2026-10-23', data: { service_email: 'hr@impresa.it', service_contact: 'Giulia Gialli', service_phone: '055 123456', invoice_email: 'fatture@impresa.it', doctor_name: 'dott. Medico Competente', doctor_email: 'mc@impresa.it', vat_exemption: false, privacy: { role: 'TITOLARE' } } });
 md = await api('POST', `/contracts/${md.id}/generate`); assert(md.protocol.startsWith('MDL-2026-'), 'protocollo MDL'); ok(`offerta MdL generata ${md.protocol}`);
 await save(md.files.find((f) => f.category === 'GENERATO_PDF').id, 'contract-files', 'MDL_offerta.pdf');
 md = await api('POST', `/contracts/${md.id}/files`, null, formOf([{ name: 'Listino_MdL.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', data: Buffer.from('PK fake') }], { category: 'LISTINO_XLSX' }));
 await api('PUT', `/contracts/${md.id}/credentials`, { username: 'impresa', password: 'Pwd-Impresa-1' }); ok('listino e credenziali MdL');
+
+// ================= SEDE TD IN LOCAZIONE =================
+console.log('Sedi TD in locazione');
+const landlord = await api('POST', '/partners', { name: 'Immobiliare Locatore S.r.l.', vat: '22334455667', street: 'Via Pisana, 100', zip: '50143', city: 'Firenze', prov: 'FI', legal_rep: 'Luca Proprietario' });
+let sd = await api('POST', '/contracts', { kind: 'SEDE', partner_id: landlord.id, proposal_date: '2026-10-23', start_date: '2026-11-01', data: { site: { street: 'Via Pisana, 100', zip: '50143', city: 'Firenze', prov: 'FI' }, site_type: 'CENTRO_POLIDIAGNOSTICO', rent: { amount: 3500, period: 'MESE', vat: 'PIU_IVA', deposit: 10500, duration_years: 6, renewal_years: 6, notice_months: 12, istat: true } } });
+assert(sd.dossier && sd.title === 'Centro Polidiagnostico Firenze', `sede con fascicolo (${sd.title})`); ok(`sede ${sd.title} registrata con fascicolo #${sd.dossier.id}`);
+await expectFail(api('POST', `/contracts/${sd.id}/generate`), 'generazione del contratto per una sede in locazione');
+sd = await api('POST', `/contracts/${sd.id}/files`, null, formOf([{ name: 'Planimetria_piano_terra.pdf', mime: 'application/pdf', data: Buffer.from('%PDF') }], { category: 'PLANIMETRIA' }));
+sd = await api('POST', `/contracts/${sd.id}/files`, null, formOf([{ name: 'Polizza_RCT.pdf', mime: 'application/pdf', data: Buffer.from('%PDF') }], { category: 'ASSICURAZIONE' }));
+sd = await api('POST', `/contracts/${sd.id}/files`, null, formOf([{ name: 'Contratto_locazione_firmato.pdf', mime: 'application/pdf', data: Buffer.from('%PDF') }], { category: 'FIRMATO', signed_at: '2026-10-20' }));
+assert(sd.status === 'FIRMATO' && sd.protocol?.startsWith('SEDE-2026-'), `sede firmata con protocollo (${sd.protocol})`); ok(`contratto di locazione caricato: ${sd.protocol}, stato Firmato, planimetria e polizza allegate`);
+const sdx = await api('GET', `/dossiers/${sd.id}`);
+assert(sdx.dossier.rows.find((x) => x.key === 'DUVRI').status === 'NON_APPLICABILE' && sdx.dossier.rows.find((x) => x.key === 'ATTO_CONDIVISIONE').status === 'NON_APPLICABILE', 'esclusioni sede TD'); ok('fascicolo della sede: DUVRI e atto di condivisione esclusi in automatico');
+await api('POST', `/dossiers/${sd.id}/generate/MODELLO_5`); ok('Modello 5 generato per la sede');
 
 // ================= permessi =================
 console.log('Permessi');
@@ -133,13 +147,13 @@ await loginAs('HQS');
 await api('PUT', `/dossiers/${pp.id}`, { extra: { notes: 'Nota HQS' } }); ok('HQS Manager aggiorna il fascicolo');
 await expectFail(api('POST', `/contracts/${own.id}/generate`), 'HQS Manager genera una proposta Service');
 await loginAs('VIEWER');
-const all = await api('GET', '/contracts'); assert(all.length === 4, 'consultazione vede tutto'); ok(`Consultazione legge ${all.length} contratti`);
+const all = await api('GET', '/contracts'); assert(all.length === 5, 'consultazione vede tutto'); ok(`Consultazione legge ${all.length} contratti`);
 await expectFail(api('PUT', `/contracts/${own.id}`, { notes: 'x' }), 'Consultazione modifica');
 cred = await api('GET', `/contracts/${sv.id}/credentials?reveal=1`); assert(cred.password === undefined, 'viewer non rivela'); ok('Consultazione non può rivelare le password');
 cookie = adminCookie;
 await api('DELETE', `/contracts/${own.id}`); ok('bozza eliminata dal Superamministratore');
 
 // ================= cruscotto e registro =================
-const st = await api('GET', '/stats/summary'); assert(st.dossiers.length === 1 && st.byKind.length >= 3, 'statistiche'); ok(`cruscotto: ${st.byKind.length} combinazioni tipo/stato, ${st.dossiers.length} fascicolo (${st.dossiers[0].pct}%)`);
+const st = await api('GET', '/stats/summary'); assert(st.dossiers.length === 2 && st.byKind.length >= 4, 'statistiche'); ok(`cruscotto: ${st.byKind.length} combinazioni tipo/stato, ${st.dossiers.length} fascicoli`);
 const au = await api('GET', '/audit?limit=50'); assert(au.length >= 20, 'registro'); ok(`registro attività: ${au.length} voci`);
 console.log(`\nCollaudo completato: ${step} passi superati. File generati in ${OUT}`);

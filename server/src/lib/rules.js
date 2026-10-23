@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS = {
   protocol_prefix_PP: 'PP',
   protocol_prefix_SRV: 'SRV',
   protocol_prefix_MDL: 'MDL',
+  protocol_prefix_SEDE: 'SEDE',
   pp_duration_years: '3',
   payment_terms_default: 'Bonifico bancario 30 gg fm da emissione fattura',
   portal_url_default: 'https://portale.toscanadiagnostica.it',
@@ -65,7 +66,10 @@ export const KIND = {
   PP: { label: 'Punto Prelievi', long: 'Contratto di appalto per punto prelievi decentrato', role: 'RETAIL' },
   SRV: { label: 'Service di Laboratorio', long: 'Lettera di offerta per esecuzione di esami di laboratorio in service (TD-SGI-MOD230)', role: 'SERVICE' },
   MDL: { label: 'Medicina del Lavoro', long: 'Lettera di offerta per prestazioni di Medicina del Lavoro (TD-SGI-MOD231)', role: 'MDL' },
+  SEDE: { label: 'Sede TD in locazione', long: 'Sede intestata a Toscana Diagnostica con contratto di locazione (laboratorio, punto prelievi o centro polidiagnostico flagship)', role: 'RETAIL' },
 };
+export const HAS_DOSSIER = (kind) => kind === 'PP' || kind === 'SEDE';
+export const SITE_TYPE = { LABORATORIO: 'Laboratorio di Analisi', PUNTO_PRELIEVI: 'Punto Prelievi', CENTRO_POLIDIAGNOSTICO: 'Centro Polidiagnostico', ALTRO: 'Altra sede' };
 
 export const STATUS_FLOW = ['BOZZA', 'PROPOSTA', 'FIRMATO', 'AUTORIZZATO', 'ATTIVO', 'CESSATO', 'ANNULLATO'];
 

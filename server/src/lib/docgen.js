@@ -84,15 +84,15 @@ export function contractData(c, p, s) {
   const vatClause = d.vat_exemption === true ? '☒ Il Cliente dichiara che la prestazione sanitaria rientra nell’esenzione IVA ex art. 10, n. 18 D.P.R. 633/1972'
     : d.vat_exemption === false ? '☒ Il Cliente dichiara che la prestazione non rientra nell’esenzione IVA ex art. 10, n. 18 D.P.R. 633/1972: si applica l’IVA di legge'
       : 'Il Cliente dichiara se la prestazione sanitaria rientra nell’esenzione IVA ex art. 10, n. 18 D.P.R. 633/1972';
-  const priceClause = d.discount_percent ? `Sconto riservato: ${pct(d.discount_percent)} sul Listino in vigore.` : '';
-  const listClause = `${priceClause}${d.price_list_note ? ` ${d.price_list_note}` : ''}${d.price_list_file ? ` Listino allegato: ${d.price_list_file}.` : ''}`.trim();
+  const listClause = d.price_list_file ? `Listino allegato: ${d.price_list_file}.` : '';
   const client = { ...partnerData(p, 'client'), client_bank: nz(p.bank_name, 'Istituto di Credito che vorrete indicarci'), payment_terms: nz(d.payment_terms, s.payment_terms_default), vat_exemption_clause: vatClause, price_list_clause: listClause };
   if (c.kind === 'SRV') {
     const pk = d.pickup || {}; const days = pk.days || [];
     const dd = {};
     for (let i = 0; i < 6; i++) {
       const day = days[i] || {};
-      dd[`d${i + 1}_fixed`] = CHK(day.mode === 'FISSO'); dd[`d${i + 1}_oncall`] = CHK(day.mode === 'CHIAMATA'); dd[`d${i + 1}_time`] = day.mode && day.mode !== 'NO' ? nz(day.time) : (day.mode === 'NO' ? 'Nessun ritiro' : '');
+      const time = day.time_from ? (day.time_to ? `${day.time_from}-${day.time_to}` : `ore ${day.time_from}`) : '';
+      dd[`d${i + 1}_fixed`] = CHK(day.mode === 'FISSO'); dd[`d${i + 1}_oncall`] = CHK(day.mode === 'CHIAMATA'); dd[`d${i + 1}_time`] = day.mode && day.mode !== 'NO' ? time : (day.mode === 'NO' ? 'Nessun ritiro' : '');
     }
     return {
       ...base, ...common, ...client, ...priv, ...dd,

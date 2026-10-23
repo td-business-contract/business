@@ -5,7 +5,7 @@ import { one, many, q, tx } from '../db.js';
 import { config } from '../config.js';
 import { ah, bad, notFound, audit, parse, itDate, todayRome } from '../lib/util.js';
 import { requireKind, isAdmin } from '../lib/access.js';
-import { getSettings, KIND, canEditKind } from '../lib/rules.js';
+import { getSettings, KIND, canEditKind, HAS_DOSSIER } from '../lib/rules.js';
 import { contractData, renderDocx, docxToPdf, pdfAvailable, CONTRACT_TEMPLATE, CONTRACT_DOCNAME } from '../lib/docgen.js';
 import { encrypt, decrypt, sha256 } from '../lib/crypto.js';
 import { defaultChecklists, DEFAULT_HOURS } from '../lib/dossier.js';
@@ -42,10 +42,10 @@ const DATA_SCHEMA = {
   SRV: z.object({
     site_name: optStr(200), site_address: optStr(300), client_ds: optStr(160),
     vat_exemption: z.boolean().nullable().optional(), payment_terms: optStr(160),
-    discount_percent: optNum, price_list_note: optStr(400), price_list_file: optStr(200),
+    price_list_file: optStr(300),
     pickup: z.object({
       site: optStr(200), street: optStr(200), city: optStr(120), contact: optStr(160), phone: optStr(60), email: optStr(160),
-      days: z.array(z.object({ mode: z.enum(['FISSO', 'CHIAMATA', 'NO']).default('NO'), time: optStr(60) })).max(6).default([]),
+      days: z.array(z.object({ mode: z.enum(['FISSO', 'CHIAMATA', 'NO']).default('NO'), time_from: optStr(5), time_to: optStr(5) })).max(6).default([]),
     }).default({}),
     interface_solution: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable().optional(),
     privacy: privacySchema,
@@ -54,13 +54,22 @@ const DATA_SCHEMA = {
     service_email: optStr(160), service_contact: optStr(160), service_phone: optStr(60), invoice_email: optStr(160),
     doctor_name: optStr(160), doctor_email: optStr(160),
     vat_exemption: z.boolean().nullable().optional(), payment_terms: optStr(160),
-    discount_percent: optNum, price_list_note: optStr(400), price_list_file: optStr(200),
+    price_list_file: optStr(300),
     privacy: privacySchema,
+  }),
+  SEDE: z.object({
+    site: z.object({ street: z.string().trim().min(2).max(200), zip: optStr(10), city: z.string().trim().min(2).max(120), prov: z.string().trim().min(2).max(4) }),
+    site_type: z.enum(['LABORATORIO', 'PUNTO_PRELIEVI', 'CENTRO_POLIDIAGNOSTICO', 'ALTRO']).default('PUNTO_PRELIEVI'),
+    rent: z.object({
+      amount: optNum, period: z.enum(['MESE', 'TRIMESTRE', 'ANNO']).default('MESE'), vat: z.enum(['PIU_IVA', 'IVA_INCLUSA', 'ESENTE']).default('PIU_IVA'),
+      deposit: optNum, duration_years: optNum, renewal_years: optNum, notice_months: optNum, istat: z.boolean().default(false),
+      expenses: optStr(600), registration: optStr(200), notes: optStr(1500),
+    }).default({}),
   }),
 };
 
 const contractSchema = z.object({
-  kind: z.enum(['PP', 'SRV', 'MDL']),
+  kind: z.enum(['PP', 'SRV', 'MDL', 'SEDE']),
   partner_id: z.coerce.number().int().positive(),
   title: optStr(160),
   proposal_date: dateStr,
@@ -85,7 +94,7 @@ export async function loadContract(id) {
   c.partner = await one('SELECT * FROM partners WHERE id=$1', [c.partner_id]);
   c.files = await many('SELECT f.id, f.category, f.filename, f.mime, f.size, f.sha256, f.version, f.created_at, u.full_name AS uploaded_by_name FROM contract_files f LEFT JOIN users u ON u.id=f.uploaded_by WHERE f.contract_id=$1 ORDER BY f.created_at DESC', [id]);
   c.events = await many('SELECT e.*, u.full_name AS user_name FROM contract_events e LEFT JOIN users u ON u.id=e.user_id WHERE e.contract_id=$1 ORDER BY e.at', [id]);
-  if (c.kind === 'PP') c.dossier = await one('SELECT id, status, doc_date, submitted_at, authorized_at, authorization_ref FROM dossiers WHERE contract_id=$1', [id]);
+  if (HAS_DOSSIER(c.kind)) c.dossier = await one('SELECT id, status, doc_date, submitted_at, authorized_at, authorization_ref FROM dossiers WHERE contract_id=$1', [id]);
   const cred = await one('SELECT portal_url, username, notes, updated_at, (password_enc IS NOT NULL) AS has_password FROM portal_credentials WHERE contract_id=$1', [id]);
   c.credentials = cred;
   return c;
@@ -124,12 +133,14 @@ r.post('/', ah(async (req, res) => {
   const data = validateData(d.kind, d.data);
   const partner = await one('SELECT * FROM partners WHERE id=$1 AND active', [d.partner_id]);
   if (!partner) throw bad('Partner non trovato o disattivato');
-  const title = d.title || (d.kind === 'PP' ? `Punto Prelievi ${data.site.city}` : partner.name);
+  const title = d.title || (d.kind === 'PP' ? `Punto Prelievi ${data.site.city}` : d.kind === 'SEDE' ? `${({ LABORATORIO: 'Laboratorio', PUNTO_PRELIEVI: 'Punto Prelievi', CENTRO_POLIDIAGNOSTICO: 'Centro Polidiagnostico', ALTRO: 'Sede' })[data.site_type]} ${data.site.city}` : partner.name);
   const row = await tx(async (client) => {
     const c = (await client.query(`INSERT INTO contracts (kind, partner_id, title, proposal_date, start_date, end_date, notes, data, created_by)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, [d.kind, d.partner_id, title, d.proposal_date, d.start_date, d.end_date, d.notes, JSON.stringify(data), req.user.id])).rows[0];
-    if (d.kind === 'PP') {
-      await client.query('INSERT INTO dossiers (contract_id, hours, checklists, doc_date) VALUES ($1,$2,$3,$4)', [c.id, JSON.stringify(DEFAULT_HOURS), JSON.stringify(defaultChecklists()), d.proposal_date]);
+    if (HAS_DOSSIER(d.kind)) {
+      // sedi intestate a TD: atto di condivisione e DUVRI con la struttura ospitante non si applicano
+      const docState = d.kind === 'SEDE' ? { ATTO_CONDIVISIONE: { not_applicable: true, note: 'Sede intestata a Toscana Diagnostica: nessuna struttura ospitante' }, DUVRI: { not_applicable: true, note: 'Sede intestata a Toscana Diagnostica: nessuna interferenza con una struttura ospitante' } } : {};
+      await client.query('INSERT INTO dossiers (contract_id, hours, checklists, doc_date, doc_state) VALUES ($1,$2,$3,$4,$5)', [c.id, JSON.stringify(DEFAULT_HOURS), JSON.stringify(defaultChecklists()), d.proposal_date, JSON.stringify(docState)]);
     }
     await addEvent(c.id, 'CREATO', req.user.id, null, null, client);
     return c;
@@ -161,6 +172,7 @@ async function nextProtocol(kind, year, s, client) {
 r.post('/:id/generate', ah(async (req, res) => {
   let c = await loadContract(Number(req.params.id));
   requireKind(c.kind, req.user);
+  if (c.kind === 'SEDE') throw bad('Per le sedi in locazione il contratto lo predispone il locatore: carica il contratto firmato');
   if (!editable(c.status)) throw bad('Il documento è già stato sottoscritto: non si rigenera');
   const s = await getSettings();
   const errors = completenessErrors(c);
@@ -210,18 +222,23 @@ function completenessErrors(c) {
     if (!c.start_date) e.push('Indica la data di decorrenza (apertura del Punto Prelievi).');
   }
   if (c.kind === 'SRV' && !p.pec) e.push('Indica la PEC del cliente: le fatture viaggiano via PEC.');
+  if (c.kind === 'SEDE' && !(Number(d.rent?.amount) > 0)) e.push('Indica il canone di locazione.');
   return e;
 }
 
 // ---------------- File: contratto firmato, listini, altro ----------------
-const CAT = { FIRMATO: 'FIRMATO', LISTINO_XLSX: 'LISTINO_XLSX', LISTINO_PDF: 'LISTINO_PDF', ALTRO: 'ALTRO' };
+const CAT = { FIRMATO: 'FIRMATO', LISTINO_XLSX: 'LISTINO_XLSX', LISTINO_PDF: 'LISTINO_PDF', PLANIMETRIA: 'PLANIMETRIA', ASSICURAZIONE: 'ASSICURAZIONE', ALTRO: 'ALTRO' };
 r.post('/:id/files', upload.array('files', 10), ah(async (req, res) => {
   const c = await loadContract(Number(req.params.id));
   requireKind(c.kind, req.user);
   const category = CAT[req.body.category];
   if (!category) throw bad('Categoria non valida');
   if (!req.files?.length) throw bad('Nessun file');
-  if (category === 'FIRMATO' && c.status === 'BOZZA') throw bad('Genera prima la proposta: il contratto firmato va caricato sulla proposta protocollata');
+  if (category === 'FIRMATO' && c.status === 'BOZZA' && c.kind !== 'SEDE') throw bad('Genera prima la proposta: il contratto firmato va caricato sulla proposta protocollata');
+  if (category === 'FIRMATO' && c.kind === 'SEDE' && !c.protocol) {
+    const s = await getSettings();
+    await tx(async (client) => { const protocol = await nextProtocol('SEDE', Number(String(c.proposal_date).slice(0, 4)), s, client); await client.query('UPDATE contracts SET protocol=$2 WHERE id=$1', [c.id, protocol]); });
+  }
   for (const f of req.files) {
     const isXlsx = /\.xlsx?$/i.test(f.originalname); const isPdf = /\.pdf$/i.test(f.originalname);
     if (category === 'LISTINO_XLSX' && !isXlsx) throw bad(`${f.originalname}: il listino va caricato in formato XLSX`);
@@ -236,7 +253,7 @@ r.post('/:id/files', upload.array('files', 10), ah(async (req, res) => {
     await addEvent(c.id, 'FIRMATO', req.user.id, `Contratto sottoscritto il ${itDate(signedAt)}`);
   }
   if (category.startsWith('LISTINO')) {
-    const names = req.files.map((f) => f.originalname).join(', ');
+    const names = (await many(`SELECT filename FROM contract_files WHERE contract_id=$1 AND category IN ('LISTINO_XLSX','LISTINO_PDF') ORDER BY created_at`, [c.id])).map((f) => f.filename).join(', ');
     await q(`UPDATE contracts SET data = data || jsonb_build_object('price_list_file', $2::text), updated_at=now() WHERE id=$1`, [c.id, names]);
   }
   await addEvent(c.id, 'ALLEGATO', req.user.id, `${category}: ${req.files.map((f) => f.originalname).join(', ')}`);
