@@ -1,0 +1,48 @@
+# Deploy su Render: New > Blueprint > collega il repository GitHub "business".
+# L'app usa Docker (LibreOffice per i PDF dei contratti e del fascicolo): il primo build richiede alcuni minuti.
+services:
+  - type: web
+    name: td-business
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: BASE_URL
+        value: https://business.toscanadiagnostica.it   # dominio ufficiale: gli altri host vengono reindirizzati qui (senza barra finale)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: td-business-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CREDENTIALS_KEY
+        generateValue: true   # cifratura AES-256-GCM delle password dei portali: non cambiarla dopo il primo avvio
+      - key: SESSION_HOURS
+        value: "10"
+      - key: REQUIRE_TOTP_FOR_ADMINS
+        value: "true"
+      - key: MAX_UPLOAD_MB
+        value: "40"
+      - key: SEED_ADMIN_EMAIL
+        value: francesco.epifani@toscanadiagnostica.it
+      - key: SEED_ADMIN_NAME
+        value: Francesco Epifani
+      - key: SEED_ADMIN_PASSWORD
+        sync: false   # inserire a mano nel pannello (min 12 caratteri): richiesta al primo accesso, poi da cambiare
+      - key: ENTRA_TENANT_ID
+        sync: false   # gestite nel pannello Render: il Sync del Blueprint non le sovrascrive
+      - key: ENTRA_CLIENT_ID
+        sync: false
+      - key: ENTRA_CLIENT_SECRET
+        sync: false
+databases:
+  - name: td-business-db
+    plan: basic-1gb   # contratti, listini, fascicoli con planimetrie e PDF sono nel database (bytea)
+    region: frankfurt
+    databaseName: business
+    user: business
