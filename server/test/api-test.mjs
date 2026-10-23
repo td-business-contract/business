@@ -55,7 +55,7 @@ const list = await api('GET', '/partners?q=cliente'); assert(list.length === 2, 
 
 // ================= 1. PUNTO PRELIEVI =================
 console.log('Punto Prelievi');
-let pp = await api('POST', '/contracts', { kind: 'PP', partner_id: host.id, proposal_date: '2026-10-23', start_date: '2026-12-01', data: { site: { street: 'Via di Prato, 26', zip: '50041', city: 'Calenzano', prov: 'FI' }, fee: { type: 'BOTH', percent: 20, fixed_amount: 300, fixed_period: 'MESE', vat: 'PIU_IVA' }, duration_years: 3 } });
+let pp = await api('POST', '/contracts', { kind: 'PP', partner_id: host.id, proposal_date: '2026-10-23', start_date: '2026-12-01', data: { site: { street: 'Via di Prato, 26', zip: '50041', city: 'Calenzano', prov: 'FI' }, fee: { percent_on: true, percent: 20, fixed_on: true, fixed_amount: 300, fixed_period: 'MESE', minimum_on: true, minimum_amount: 500, minimum_period: 'MESE', extra: 'Le utenze restano a carico della Società', vat: 'PIU_IVA' }, duration_years: 3 } });
 assert(pp.status === 'BOZZA' && pp.dossier, 'contratto PP con fascicolo'); ok(`contratto PP #${pp.id} in bozza con fascicolo #${pp.dossier.id}`);
 await expectFail(api('POST', `/contracts/${pp.id}/files`, null, formOf([{ name: 'firmato.pdf', mime: 'application/pdf', data: Buffer.from('%PDF-1.4 test') }], { category: 'FIRMATO' })), 'upload firmato prima della generazione');
 pp = await api('POST', `/contracts/${pp.id}/generate`);
@@ -63,8 +63,9 @@ assert(pp.protocol?.startsWith('PP-2026-') && pp.status === 'PROPOSTA', 'protoco
 const ppDocx = pp.files.find((f) => f.category === 'GENERATO_DOCX'); const ppPdf = pp.files.find((f) => f.category === 'GENERATO_PDF');
 assert(ppDocx && ppPdf, 'DOCX e PDF del contratto PP');
 ok(`scaricati ${await save(ppDocx.id, 'contract-files', 'PP_contratto.docx')} byte DOCX e ${await save(ppPdf.id, 'contract-files', 'PP_contratto.pdf')} byte PDF`);
-pp = await api('PUT', `/contracts/${pp.id}`, { data: { ...pp.data, fee: { type: 'PERCENT', percent: 22.5, vat: 'IVA_INCLUSA' } } });
+pp = await api('PUT', `/contracts/${pp.id}`, { data: { ...pp.data, fee: { percent_on: true, percent: 22.5, percent_base: 'POLIAMBULATORIO', vat: 'IVA_INCLUSA' }, services: { nursing: 'HOST', reception: 'TD' } } });
 pp = await api('POST', `/contracts/${pp.id}/generate`); assert(pp.version === 2, 'versione 2'); ok(`modifica del corrispettivo e rigenerazione: v${pp.version}, un solo DOCX generato conservato (${pp.files.filter((f) => f.category === 'GENERATO_DOCX').length})`);
+await save(pp.files.find((f) => f.category === 'GENERATO_PDF').id, 'contract-files', 'PP_contratto_v2.pdf');
 pp = await api('POST', `/contracts/${pp.id}/files`, null, formOf([{ name: 'Contratto_firmato.pdf', mime: 'application/pdf', data: fs.readFileSync(path.join(OUT, 'PP_contratto.pdf')) }], { category: 'FIRMATO', signed_at: '2026-10-24' }));
 assert(pp.status === 'FIRMATO' && pp.signed_at === '2026-10-24', 'stato FIRMATO'); ok('contratto firmato caricato: stato Firmato');
 await expectFail(api('PUT', `/contracts/${pp.id}`, { notes: 'x' }), 'modifica dopo la firma');

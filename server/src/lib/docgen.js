@@ -69,6 +69,8 @@ export function contractData(c, p, s) {
       duration_years: String(years), duration_years_words: yearsWords(years),
       start_date: c.start_date ? itDate(c.start_date) : '__/__/____',
       fee_clause: feeClause(d.fee),
+      td_nursing: (d.services?.nursing || 'TD') === 'TD', host_nursing: d.services?.nursing === 'HOST',
+      host_reception: (d.services?.reception || 'HOST') === 'HOST', td_reception: d.services?.reception === 'TD',
       duvri_costs_clause: nz(d.duvri_costs_clause, s.duvri_costs_default),
     };
   }

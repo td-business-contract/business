@@ -365,3 +365,9 @@ label.btn { cursor: pointer; }
 .alert.info.small { font-size: 12px; padding: 8px 10px; }
 .alert { display: block; }
 .alert b { margin-right: 4px; }
+
+/* Business: condizioni del corrispettivo */
+.feerow { display: grid; grid-template-columns: 170px repeat(3, max-content); gap: 12px; align-items: end; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.feerow > label.inline { padding-bottom: 10px; }
+.feerow > .small { padding-bottom: 12px; }
+@media (max-width: 860px) { .feerow { grid-template-columns: 1fr; } }

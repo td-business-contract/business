@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth, canEditKind, isAdmin } from '../auth.jsx';
 import { useApi, Card, Field, ErrorBox, Loading, Badge, StatusBadge, KindBadge, Modal, PromptModal, ConfirmModal, UploadButton, Icon, useToast } from '../components/ui.jsx';
-import { itDate, itDateTime, bytes, KIND, FILE_CAT, EVENT, DOSSIER_STATUS, FEE_TYPE, FEE_VAT, FEE_PERIOD, DAYS, today, num } from '../format.js';
+import { itDate, itDateTime, bytes, KIND, FILE_CAT, EVENT, DOSSIER_STATUS, FEE_VAT, FEE_PERIOD, FEE_BASE, DAYS, today, num } from '../format.js';
 
 export default function ContractDetail() {
   const { id } = useParams();
@@ -66,9 +66,10 @@ export default function ContractDetail() {
         <Card title="Dati della proposta">
           {c.kind === 'PP' && <table className="t"><tbody>
             <tr><td className="muted">Sede del Poliambulatorio / Punto Prelievi</td><td className="strong">{d.site?.street}, {d.site?.zip} {d.site?.city} ({d.site?.prov})</td></tr>
-            <tr><td className="muted">Corrispettivo</td><td>{(d.fee?.type !== 'FIXED') && `${num(d.fee?.percent)}% del fatturato del Punto Prelievi`}{d.fee?.type === 'BOTH' && ' + '}{(d.fee?.type !== 'PERCENT') && `${num(d.fee?.fixed_amount)} € ${FEE_PERIOD[d.fee?.fixed_period]}`} · {FEE_VAT[d.fee?.vat]}</td></tr>
+            <tr><td className="muted">Corrispettivo</td><td>{[d.fee?.percent_on && `${num(d.fee.percent)}% sul ${d.fee.percent_base === 'ALTRO' ? d.fee.percent_base_other : FEE_BASE[d.fee.percent_base || 'PUNTO_PRELIEVI']}`, d.fee?.fixed_on && `fisso ${num(d.fee.fixed_amount)} € ${FEE_PERIOD[d.fee.fixed_period]}`, d.fee?.minimum_on && `minimo garantito ${num(d.fee.minimum_amount)} € ${FEE_PERIOD[d.fee.minimum_period]}`].filter(Boolean).join(' + ') || 'da definire'} · {FEE_VAT[d.fee?.vat]}{d.fee?.extra && <div className="small muted">{d.fee.extra}</div>}</td></tr>
             <tr><td className="muted">Durata</td><td>{d.duration_years} anni dal {c.start_date ? itDate(c.start_date) : 'data da definire'}, rinnovo tacito annuale, recesso con 6 mesi di preavviso</td></tr>
             <tr><td className="muted">Comune di esclusiva</td><td>{d.site?.city}</td></tr>
+            <tr><td className="muted">Servizi</td><td>infermieristico: {(d.services?.nursing || 'TD') === 'TD' ? 'Toscana Diagnostica' : 'struttura ospitante'} · accettazione e incassi: {(d.services?.reception || 'HOST') === 'HOST' ? 'struttura ospitante' : 'Toscana Diagnostica'}</td></tr>
           </tbody></table>}
           {c.kind === 'SRV' && <table className="t"><tbody>
             <tr><td className="muted">Sede operativa</td><td className="strong">{d.site_name || p.name}<div className="small muted">{d.site_address || [p.street, p.city].filter(Boolean).join(', ')}</div></td></tr>

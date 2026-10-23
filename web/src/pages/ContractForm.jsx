@@ -4,10 +4,10 @@ import { api } from '../api.js';
 import { useAuth, canEditKind } from '../auth.jsx';
 import { useApi, Card, Field, ErrorBox, Loading, MoneyInput, useToast, Icon } from '../components/ui.jsx';
 import { PartnerModal } from '../components/PartnerForm.jsx';
-import { today, KIND, DAYS, FEE_TYPE, FEE_VAT, FEE_PERIOD } from '../format.js';
+import { today, KIND, DAYS, FEE_VAT, FEE_PERIOD, FEE_BASE } from '../format.js';
 
 const EMPTY = {
-  PP: { site: { street: '', zip: '', city: '', prov: '' }, fee: { type: 'PERCENT', percent: '', fixed_amount: '', fixed_period: 'MESE', vat: 'PIU_IVA' }, duration_years: 3, duvri_costs_clause: '' },
+  PP: { site: { street: '', zip: '', city: '', prov: '' }, fee: { percent_on: true, percent: '', percent_base: 'PUNTO_PRELIEVI', percent_base_other: '', fixed_on: false, fixed_amount: '', fixed_period: 'MESE', minimum_on: false, minimum_amount: '', minimum_period: 'MESE', extra: '', vat: 'PIU_IVA' }, services: { nursing: 'TD', reception: 'HOST' }, duration_years: 3, duvri_costs_clause: '' },
   SRV: { site_name: '', site_address: '', client_ds: '', vat_exemption: null, payment_terms: '', discount_percent: '', price_list_note: '', pickup: { site: '', street: '', city: '', contact: '', phone: '', email: '', days: DAYS.slice(0, 6).map(() => ({ mode: 'NO', time: '' })) }, interface_solution: null, privacy: { role: null, principal: '', measures: '', dpo_name: '', dpo_contact: '' } },
   MDL: { service_email: '', service_contact: '', service_phone: '', invoice_email: '', doctor_name: '', doctor_email: '', vat_exemption: null, payment_terms: '', discount_percent: '', price_list_note: '', privacy: { role: null, principal: '', measures: '', dpo_name: '', dpo_contact: '' } },
 };
@@ -103,14 +103,44 @@ export default function ContractForm() {
           </div>
           <div className="small muted" style={{ marginTop: 8 }}>Il comune indicato è anche il comune di esclusiva (art. 3.1, ultimo punto) e il destinatario della domanda di autorizzazione (Modello 5).</div>
         </Card>
+        <Card title="Ripartizione dei servizi (art. 3)" className="mt">
+          <div className="form-grid">
+            <Field label="Servizio infermieristico per i prelievi">
+              <div className="seg">{[['TD', 'Toscana Diagnostica'], ['HOST', 'Struttura ospitante']].map(([v, l]) => <label key={v} className={(d.services?.nursing || 'TD') === v ? 'on' : ''}><input type="radio" checked={(d.services?.nursing || 'TD') === v} onChange={() => setD('services.nursing', v)} />{l}</label>)}</div>
+            </Field>
+            <Field label="Accettazione, segreteria, consegna referti, incassi">
+              <div className="seg">{[['HOST', 'Struttura ospitante'], ['TD', 'Toscana Diagnostica']].map(([v, l]) => <label key={v} className={(d.services?.reception || 'HOST') === v ? 'on' : ''}><input type="radio" checked={(d.services?.reception || 'HOST') === v} onChange={() => setD('services.reception', v)} />{l}</label>)}</div>
+            </Field>
+          </div>
+          <div className="small muted" style={{ marginTop: 8 }}>Il format prevede infermieristico a Toscana Diagnostica e accettazione alla struttura ospitante: la scelta sposta la relativa obbligazione tra l'art. 3.1 e l'art. 3.2. La fatturazione resta sempre sui sistemi e a nome di Toscana Diagnostica.</div>
+        </Card>
         <Card title="Corrispettivo (art. 5) e durata (art. 4)" className="mt">
           <div className="form-grid">
-            <Field label="Tipo di corrispettivo"><select value={d.fee.type} onChange={(e) => setD('fee.type', e.target.value)}>{Object.entries(FEE_TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
-            {(d.fee.type === 'PERCENT' || d.fee.type === 'BOTH') && <Field label="Percentuale sul fatturato del Punto Prelievi (%)"><input type="number" step="0.01" min="0" max="100" value={d.fee.percent ?? ''} onChange={(e) => setD('fee.percent', e.target.value)} /></Field>}
-            {(d.fee.type === 'FIXED' || d.fee.type === 'BOTH') && <>
-              <Field label="Importo fisso (€)"><MoneyInput value={d.fee.fixed_amount} onChange={(v) => setD('fee.fixed_amount', v)} /></Field>
-              <Field label="Periodicità del fisso"><select value={d.fee.fixed_period} onChange={(e) => setD('fee.fixed_period', e.target.value)}>{Object.entries(FEE_PERIOD).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
-            </>}
+            <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="feerow">
+                <label className="f inline"><input type="checkbox" checked={Boolean(d.fee.percent_on)} onChange={(e) => setD('fee.percent_on', e.target.checked)} /> % sul fatturato</label>
+                {d.fee.percent_on ? <>
+                  <Field label="Percentuale"><input type="number" step="0.01" min="0" max="100" value={d.fee.percent ?? ''} onChange={(e) => setD('fee.percent', e.target.value)} style={{ width: 110 }} /></Field>
+                  <Field label="Base di calcolo"><select value={d.fee.percent_base || 'PUNTO_PRELIEVI'} onChange={(e) => setD('fee.percent_base', e.target.value)} style={{ width: 290 }}>{Object.entries(FEE_BASE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                  {d.fee.percent_base === 'ALTRO' && <Field label="Base (testo in contratto)"><input value={d.fee.percent_base_other || ''} placeholder="es. dalle prestazioni di diagnostica per immagini" onChange={(e) => setD('fee.percent_base_other', e.target.value)} style={{ width: 320 }} /></Field>}
+                </> : <span className="small muted">non previsto</span>}
+              </div>
+              <div className="feerow">
+                <label className="f inline"><input type="checkbox" checked={Boolean(d.fee.fixed_on)} onChange={(e) => setD('fee.fixed_on', e.target.checked)} /> Importo fisso</label>
+                {d.fee.fixed_on ? <>
+                  <Field label="Importo (€)"><MoneyInput value={d.fee.fixed_amount} onChange={(v) => setD('fee.fixed_amount', v)} style={{ width: 140 }} /></Field>
+                  <Field label="Periodicità"><select value={d.fee.fixed_period} onChange={(e) => setD('fee.fixed_period', e.target.value)} style={{ width: 140 }}>{Object.entries(FEE_PERIOD).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                </> : <span className="small muted">non previsto</span>}
+              </div>
+              <div className="feerow">
+                <label className="f inline"><input type="checkbox" checked={Boolean(d.fee.minimum_on)} onChange={(e) => setD('fee.minimum_on', e.target.checked)} /> Minimo garantito</label>
+                {d.fee.minimum_on ? <>
+                  <Field label="Importo (€)"><MoneyInput value={d.fee.minimum_amount} onChange={(v) => setD('fee.minimum_amount', v)} style={{ width: 140 }} /></Field>
+                  <Field label="Periodicità"><select value={d.fee.minimum_period} onChange={(e) => setD('fee.minimum_period', e.target.value)} style={{ width: 140 }}>{Object.entries(FEE_PERIOD).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                </> : <span className="small muted">non previsto</span>}
+              </div>
+              <Field label="Altre condizioni del corrispettivo (compaiono nell'art. 5.1 dopo le condizioni sopra)" help="es. scaglioni di fatturato, revisione annuale, rimborso utenze, franchigia"><textarea value={d.fee.extra || ''} onChange={(e) => setD('fee.extra', e.target.value)} style={{ minHeight: 56 }} /></Field>
+            </div>
             <Field label="IVA"><select value={d.fee.vat} onChange={(e) => setD('fee.vat', e.target.value)}>{Object.entries(FEE_VAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
             <Field label="Durata (anni)"><input type="number" min="1" max="10" value={d.duration_years} onChange={(e) => setD('duration_years', e.target.value)} /></Field>
             <Field label="Allegato 2 · costi della sicurezza da interferenze" className="span2" help="vuoto: testo predefinito delle Impostazioni (nessun rischio di interferenza, costi pari a 0 euro)"><textarea value={d.duvri_costs_clause || ''} onChange={(e) => setD('duvri_costs_clause', e.target.value)} style={{ minHeight: 56 }} placeholder={S.duvri_costs_default} /></Field>
@@ -214,7 +244,7 @@ function PrivacyCard({ d, setD, annex }) {
 function cleanData(kind, d) {
   const x = structuredClone(d);
   const num = (v) => (v === '' || v == null ? null : Number(v));
-  if (kind === 'PP') { x.fee.percent = num(x.fee.percent); x.fee.fixed_amount = num(x.fee.fixed_amount); x.duration_years = Number(x.duration_years || 3); }
+  if (kind === 'PP') { x.fee.percent = num(x.fee.percent); x.fee.fixed_amount = num(x.fee.fixed_amount); x.fee.minimum_amount = num(x.fee.minimum_amount); x.duration_years = Number(x.duration_years || 3); }
   else { x.discount_percent = num(x.discount_percent); }
   return x;
 }

@@ -87,19 +87,24 @@ export const yearsWords = (n) => YEARS[Number(n)] || String(n);
 export const eur = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', useGrouping: 'always' }).format(Number(n || 0));
 export const pct = (n) => `${new Intl.NumberFormat('it-IT', { maximumFractionDigits: 2 }).format(Number(n || 0))}%`;
 
-// Clausola del corrispettivo del punto prelievi: percentuale e/o fisso, con o senza IVA
+// Clausola del corrispettivo del punto prelievi: percentuale sul fatturato e/o fisso, minimo garantito, altre condizioni, con o senza IVA
+const PERIOD = { MESE: 'mensili', ANNO: 'annui', TRIMESTRE: 'trimestrali' };
 export function feeClause(fee = {}) {
   const vat = { PIU_IVA: ' + IVA', IVA_INCLUSA: ' IVA inclusa', ESENTE: ' (operazione esente IVA ai sensi dell’art. 10 D.P.R. 633/1972)' }[fee.vat] ?? ' + IVA';
-  const period = { MESE: 'mensili', ANNO: 'annui', TRIMESTRE: 'trimestrali' }[fee.fixed_period] || 'mensili';
   const parts = [];
-  if ((fee.type === 'PERCENT' || fee.type === 'BOTH') && fee.percent != null && fee.percent !== '') {
-    parts.push(`${pct(fee.percent)} (${pctWords(fee.percent)} per cento)${vat} del fatturato generato dal Punto Prelievi`);
+  if (fee.percent_on && fee.percent != null && fee.percent !== '') {
+    const base = fee.percent_base === 'POLIAMBULATORIO' ? 'dall’attività poliambulatoriale' : fee.percent_base === 'ALTRO' && (fee.percent_base_other || '').trim() ? fee.percent_base_other.trim() : 'dal Punto Prelievi';
+    parts.push(`${pct(fee.percent)} (${pctWords(fee.percent)} per cento)${vat} del fatturato generato ${base}`);
   }
-  if ((fee.type === 'FIXED' || fee.type === 'BOTH') && fee.fixed_amount != null && fee.fixed_amount !== '') {
-    parts.push(`un importo fisso di ${eur(fee.fixed_amount)} (${amountWords(fee.fixed_amount)})${vat} ${period}`);
+  if (fee.fixed_on && fee.fixed_amount != null && fee.fixed_amount !== '') {
+    parts.push(`un importo fisso di ${eur(fee.fixed_amount)} (${amountWords(fee.fixed_amount)})${vat} ${PERIOD[fee.fixed_period] || 'mensili'}`);
   }
-  if (!parts.length) return '[corrispettivo da definire].';
-  return `${parts.join(', oltre a ')}.`;
+  let text = parts.length ? `${parts.join(', oltre a ')}.` : '';
+  if (fee.minimum_on && fee.minimum_amount != null && fee.minimum_amount !== '') {
+    text += ` È in ogni caso garantito alla Società un corrispettivo minimo di ${eur(fee.minimum_amount)} (${amountWords(fee.minimum_amount)})${vat} ${PERIOD[fee.minimum_period] || 'mensili'}.`;
+  }
+  if ((fee.extra || '').trim()) text += ` ${fee.extra.trim().replace(/\.?$/, '.')}`;
+  return text.trim() || '[corrispettivo da definire].';
 }
 
 const UNITS = ['', 'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove', 'dieci', 'undici', 'dodici', 'tredici', 'quattordici', 'quindici', 'sedici', 'diciassette', 'diciotto', 'diciannove'];
