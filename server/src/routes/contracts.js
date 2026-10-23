@@ -27,12 +27,14 @@ const DATA_SCHEMA = {
   PP: z.object({
     site: z.object({ street: z.string().trim().min(2).max(200), zip: optStr(10), city: z.string().trim().min(2).max(120), prov: z.string().trim().min(2).max(4) }),
     fee: z.object({
-      percent_on: z.boolean().default(true), percent: optNum, percent_base: z.enum(['PUNTO_PRELIEVI', 'POLIAMBULATORIO', 'ALTRO']).default('PUNTO_PRELIEVI'), percent_base_other: optStr(200),
-      fixed_on: z.boolean().default(false), fixed_amount: optNum, fixed_period: z.enum(['MESE', 'TRIMESTRE', 'ANNO']).default('MESE'),
-      minimum_on: z.boolean().default(false), minimum_amount: optNum, minimum_period: z.enum(['MESE', 'TRIMESTRE', 'ANNO']).default('MESE'),
-      extra: optStr(1500),
-      vat: z.enum(['PIU_IVA', 'IVA_INCLUSA', 'ESENTE']).default('PIU_IVA'),
-    }),
+      items: z.array(z.object({
+        kind: z.enum(['PERCENT', 'FIXED', 'MINIMUM', 'TEXT']).default('PERCENT'),
+        percent: optNum, base: z.enum(['PUNTO_PRELIEVI', 'CENTRO_DIAGNOSTICO', 'POLIAMBULATORIO', 'ALTRO']).default('PUNTO_PRELIEVI'), base_other: optStr(300), include_ssr: z.boolean().default(false),
+        amount: optNum, period: z.enum(['MESE', 'TRIMESTRE', 'ANNO', 'UNA_TANTUM']).default('MESE'), purpose: optStr(300),
+        vat: z.enum(['PIU_IVA', 'IVA_INCLUSA', 'ESENTE']).default('PIU_IVA'),
+        closing: z.boolean().default(true), text: optStr(1500),
+      })).max(12).default([]),
+    }).default({}),
     services: z.object({ nursing: z.enum(['TD', 'HOST']).default('TD'), reception: z.enum(['HOST', 'TD']).default('HOST') }).default({}),
     duration_years: z.coerce.number().int().min(1).max(10).default(3),
     duvri_costs_clause: optStr(600),
@@ -197,11 +199,14 @@ function completenessErrors(c) {
   if (!p.street || !p.city) e.push('Completa l’indirizzo del partner.');
   if (!p.signer && !p.legal_rep) e.push('Indica il legale rappresentante o il firmatario del partner.');
   if (c.kind === 'PP') {
-    const f = d.fee || {};
-    if (f.percent_on && !(Number(f.percent) > 0)) e.push('Indica la percentuale sul fatturato del Punto Prelievi.');
-    if (f.fixed_on && !(Number(f.fixed_amount) > 0)) e.push('Indica l’importo fisso del corrispettivo.');
-    if (f.minimum_on && !(Number(f.minimum_amount) > 0)) e.push('Indica l’importo del minimo garantito.');
-    if (!f.percent_on && !f.fixed_on && !(f.extra || '').trim()) e.push('Indica almeno una condizione del corrispettivo (percentuale, fisso o altre condizioni).');
+    const items = d.fee?.items || [];
+    if (!items.length) e.push('Indica almeno una condizione del corrispettivo (art. 5.1).');
+    items.forEach((it, i) => {
+      if (it.kind === 'PERCENT' && !(Number(it.percent) > 0)) e.push(`Condizione ${i + 1}: indica la percentuale.`);
+      if (it.kind === 'PERCENT' && it.base === 'ALTRO' && !(it.base_other || '').trim()) e.push(`Condizione ${i + 1}: indica la base di calcolo.`);
+      if (['FIXED', 'MINIMUM'].includes(it.kind) && !(Number(it.amount) > 0)) e.push(`Condizione ${i + 1}: indica l’importo.`);
+      if (it.kind === 'TEXT' && !(it.text || '').trim()) e.push(`Condizione ${i + 1}: scrivi il testo della condizione.`);
+    });
     if (!c.start_date) e.push('Indica la data di decorrenza (apertura del Punto Prelievi).');
   }
   if (c.kind === 'SRV' && !p.pec) e.push('Indica la PEC del cliente: le fatture viaggiano via PEC.');

@@ -87,24 +87,37 @@ export const yearsWords = (n) => YEARS[Number(n)] || String(n);
 export const eur = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', useGrouping: 'always' }).format(Number(n || 0));
 export const pct = (n) => `${new Intl.NumberFormat('it-IT', { maximumFractionDigits: 2 }).format(Number(n || 0))}%`;
 
-// Clausola del corrispettivo del punto prelievi: percentuale sul fatturato e/o fisso, minimo garantito, altre condizioni, con o senza IVA
-const PERIOD = { MESE: 'mensili', ANNO: 'annui', TRIMESTRE: 'trimestrali' };
-export function feeClause(fee = {}) {
-  const vat = { PIU_IVA: ' + IVA', IVA_INCLUSA: ' IVA inclusa', ESENTE: ' (operazione esente IVA ai sensi dell’art. 10 D.P.R. 633/1972)' }[fee.vat] ?? ' + IVA';
-  const parts = [];
-  if (fee.percent_on && fee.percent != null && fee.percent !== '') {
-    const base = fee.percent_base === 'POLIAMBULATORIO' ? 'dall’attività poliambulatoriale' : fee.percent_base === 'ALTRO' && (fee.percent_base_other || '').trim() ? fee.percent_base_other.trim() : 'dal Punto Prelievi';
-    parts.push(`${pct(fee.percent)} (${pctWords(fee.percent)} per cento)${vat} del fatturato generato ${base}`);
+// Clausola del corrispettivo del punto prelievi (art. 5.1): elenco di condizioni, una per sotto-articolo (5.1.1, 5.1.2, ...)
+const PERIOD = { MESE: 'al mese', TRIMESTRE: 'a trimestre', ANNO: 'all’anno', UNA_TANTUM: 'una tantum' };
+const VAT = { PIU_IVA: 'oltre IVA', IVA_INCLUSA: 'IVA inclusa', ESENTE: 'esente IVA ai sensi dell’art. 10 D.P.R. 633/1972' };
+export const FEE_BASE_TEXT = {
+  PUNTO_PRELIEVI: 'del fatturato generato dal Punto Prelievi',
+  CENTRO_DIAGNOSTICO: 'del fatturato generato dal Centro Diagnostico (Medicina Specialistica, Diagnostica per Immagini)',
+  POLIAMBULATORIO: 'del fatturato generato dall’attività poliambulatoriale',
+};
+const CLOSING = ' Detto corrispettivo costituisce una remunerazione complessiva ed onnicomprensiva per la prestazione dei Servizi da parte della Società.';
+const endDot = (t) => (/[.;]$/.test(t) ? t : `${t}.`);
+export function feeItemText(it = {}) {
+  const vat = VAT[it.vat] || VAT.PIU_IVA;
+  let t;
+  if (it.kind === 'PERCENT') {
+    const base = it.base === 'ALTRO' ? (it.base_other || '').trim() : FEE_BASE_TEXT[it.base] || FEE_BASE_TEXT.PUNTO_PRELIEVI;
+    t = `${pct(it.percent)} (${pctWords(it.percent)} per cento) ${vat} ${base}${it.include_ssr ? ', ivi comprese le prestazioni effettuate a vantaggio del SSR' : ''}`;
+  } else if (it.kind === 'FIXED') {
+    t = `Euro ${new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' }).format(Number(it.amount || 0))} (${amountWords(it.amount).replace(/^euro /, '')}) ${vat} ${PERIOD[it.period] || PERIOD.MESE}${(it.purpose || '').trim() ? ` ${it.purpose.trim()}` : ''}`;
+  } else if (it.kind === 'MINIMUM') {
+    t = `In ogni caso è garantito alla Società un corrispettivo minimo di Euro ${new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' }).format(Number(it.amount || 0))} (${amountWords(it.amount).replace(/^euro /, '')}) ${vat} ${PERIOD[it.period] || PERIOD.MESE}${(it.purpose || '').trim() ? ` ${it.purpose.trim()}` : ''}`;
+  } else {
+    t = (it.text || '').trim();
   }
-  if (fee.fixed_on && fee.fixed_amount != null && fee.fixed_amount !== '') {
-    parts.push(`un importo fisso di ${eur(fee.fixed_amount)} (${amountWords(fee.fixed_amount)})${vat} ${PERIOD[fee.fixed_period] || 'mensili'}`);
-  }
-  let text = parts.length ? `${parts.join(', oltre a ')}.` : '';
-  if (fee.minimum_on && fee.minimum_amount != null && fee.minimum_amount !== '') {
-    text += ` È in ogni caso garantito alla Società un corrispettivo minimo di ${eur(fee.minimum_amount)} (${amountWords(fee.minimum_amount)})${vat} ${PERIOD[fee.minimum_period] || 'mensili'}.`;
-  }
-  if ((fee.extra || '').trim()) text += ` ${fee.extra.trim().replace(/\.?$/, '.')}`;
-  return text.trim() || '[corrispettivo da definire].';
+  t = endDot(t);
+  if (it.kind !== 'TEXT' && (it.text || '').trim()) t += ` ${endDot(it.text.trim())}`;
+  if (it.closing && it.kind !== 'TEXT') t += CLOSING;
+  return t;
+}
+export function feeItems(fee = {}) {
+  const items = (fee.items || []).map((it) => ({ text: feeItemText(it) }));
+  return items.length ? items : [{ text: '[corrispettivo da definire].' }];
 }
 
 const UNITS = ['', 'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove', 'dieci', 'undici', 'dodici', 'tredici', 'quattordici', 'quindici', 'sedici', 'diciassette', 'diciotto', 'diciannove'];

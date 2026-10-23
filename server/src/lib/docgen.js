@@ -8,7 +8,7 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { config } from '../config.js';
 import { itDate, itDateTime } from './util.js';
-import { feeClause, yearsWords, eur, pct } from './rules.js';
+import { feeItems, yearsWords, eur, pct } from './rules.js';
 
 const TPL_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
 const CHK = (b) => (b ? '☒' : '☐');
@@ -68,7 +68,7 @@ export function contractData(c, p, s) {
       site_street: nz(site.street), site_city: nz(site.city), site_prov: nz(site.prov), site_zip: nz(site.zip),
       duration_years: String(years), duration_years_words: yearsWords(years),
       start_date: c.start_date ? itDate(c.start_date) : '__/__/____',
-      fee_clause: feeClause(d.fee),
+      fee_items: feeItems(d.fee),
       td_nursing: (d.services?.nursing || 'TD') === 'TD', host_nursing: d.services?.nursing === 'HOST',
       host_reception: (d.services?.reception || 'HOST') === 'HOST', td_reception: d.services?.reception === 'TD',
       duvri_costs_clause: nz(d.duvri_costs_clause, s.duvri_costs_default),

@@ -4,10 +4,10 @@ import { api } from '../api.js';
 import { useAuth, canEditKind } from '../auth.jsx';
 import { useApi, Card, Field, ErrorBox, Loading, MoneyInput, useToast, Icon } from '../components/ui.jsx';
 import { PartnerModal } from '../components/PartnerForm.jsx';
-import { today, KIND, DAYS, FEE_VAT, FEE_PERIOD, FEE_BASE } from '../format.js';
+import { today, KIND, DAYS, FEE_VAT, FEE_PERIOD, FEE_BASE, FEE_KIND } from '../format.js';
 
 const EMPTY = {
-  PP: { site: { street: '', zip: '', city: '', prov: '' }, fee: { percent_on: true, percent: '', percent_base: 'PUNTO_PRELIEVI', percent_base_other: '', fixed_on: false, fixed_amount: '', fixed_period: 'MESE', minimum_on: false, minimum_amount: '', minimum_period: 'MESE', extra: '', vat: 'PIU_IVA' }, services: { nursing: 'TD', reception: 'HOST' }, duration_years: 3, duvri_costs_clause: '' },
+  PP: { site: { street: '', zip: '', city: '', prov: '' }, fee: { items: [{ kind: 'PERCENT', percent: '', base: 'PUNTO_PRELIEVI', base_other: '', include_ssr: false, amount: '', period: 'MESE', purpose: '', vat: 'PIU_IVA', closing: true, text: '' }] }, services: { nursing: 'TD', reception: 'HOST' }, duration_years: 3, duvri_costs_clause: '' },
   SRV: { site_name: '', site_address: '', client_ds: '', vat_exemption: null, payment_terms: '', discount_percent: '', price_list_note: '', pickup: { site: '', street: '', city: '', contact: '', phone: '', email: '', days: DAYS.slice(0, 6).map(() => ({ mode: 'NO', time: '' })) }, interface_solution: null, privacy: { role: null, principal: '', measures: '', dpo_name: '', dpo_contact: '' } },
   MDL: { service_email: '', service_contact: '', service_phone: '', invoice_email: '', doctor_name: '', doctor_email: '', vat_exemption: null, payment_terms: '', discount_percent: '', price_list_note: '', privacy: { role: null, principal: '', measures: '', dpo_name: '', dpo_contact: '' } },
 };
@@ -116,36 +116,13 @@ export default function ContractForm() {
         </Card>
         <Card title="Corrispettivo (art. 5) e durata (art. 4)" className="mt">
           <div className="form-grid">
-            <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div className="feerow">
-                <label className="f inline"><input type="checkbox" checked={Boolean(d.fee.percent_on)} onChange={(e) => setD('fee.percent_on', e.target.checked)} /> % sul fatturato</label>
-                {d.fee.percent_on ? <>
-                  <Field label="Percentuale"><input type="number" step="0.01" min="0" max="100" value={d.fee.percent ?? ''} onChange={(e) => setD('fee.percent', e.target.value)} style={{ width: 110 }} /></Field>
-                  <Field label="Base di calcolo"><select value={d.fee.percent_base || 'PUNTO_PRELIEVI'} onChange={(e) => setD('fee.percent_base', e.target.value)} style={{ width: 290 }}>{Object.entries(FEE_BASE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
-                  {d.fee.percent_base === 'ALTRO' && <Field label="Base (testo in contratto)"><input value={d.fee.percent_base_other || ''} placeholder="es. dalle prestazioni di diagnostica per immagini" onChange={(e) => setD('fee.percent_base_other', e.target.value)} style={{ width: 320 }} /></Field>}
-                </> : <span className="small muted">non previsto</span>}
-              </div>
-              <div className="feerow">
-                <label className="f inline"><input type="checkbox" checked={Boolean(d.fee.fixed_on)} onChange={(e) => setD('fee.fixed_on', e.target.checked)} /> Importo fisso</label>
-                {d.fee.fixed_on ? <>
-                  <Field label="Importo (€)"><MoneyInput value={d.fee.fixed_amount} onChange={(v) => setD('fee.fixed_amount', v)} style={{ width: 140 }} /></Field>
-                  <Field label="Periodicità"><select value={d.fee.fixed_period} onChange={(e) => setD('fee.fixed_period', e.target.value)} style={{ width: 140 }}>{Object.entries(FEE_PERIOD).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
-                </> : <span className="small muted">non previsto</span>}
-              </div>
-              <div className="feerow">
-                <label className="f inline"><input type="checkbox" checked={Boolean(d.fee.minimum_on)} onChange={(e) => setD('fee.minimum_on', e.target.checked)} /> Minimo garantito</label>
-                {d.fee.minimum_on ? <>
-                  <Field label="Importo (€)"><MoneyInput value={d.fee.minimum_amount} onChange={(v) => setD('fee.minimum_amount', v)} style={{ width: 140 }} /></Field>
-                  <Field label="Periodicità"><select value={d.fee.minimum_period} onChange={(e) => setD('fee.minimum_period', e.target.value)} style={{ width: 140 }}>{Object.entries(FEE_PERIOD).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
-                </> : <span className="small muted">non previsto</span>}
-              </div>
-              <Field label="Altre condizioni del corrispettivo (compaiono nell'art. 5.1 dopo le condizioni sopra)" help="es. scaglioni di fatturato, revisione annuale, rimborso utenze, franchigia"><textarea value={d.fee.extra || ''} onChange={(e) => setD('fee.extra', e.target.value)} style={{ minHeight: 56 }} /></Field>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <FeeItems items={d.fee.items || []} onChange={(items) => setD('fee.items', items)} />
             </div>
-            <Field label="IVA"><select value={d.fee.vat} onChange={(e) => setD('fee.vat', e.target.value)}>{Object.entries(FEE_VAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
             <Field label="Durata (anni)"><input type="number" min="1" max="10" value={d.duration_years} onChange={(e) => setD('duration_years', e.target.value)} /></Field>
             <Field label="Allegato 2 · costi della sicurezza da interferenze" className="span2" help="vuoto: testo predefinito delle Impostazioni (nessun rischio di interferenza, costi pari a 0 euro)"><textarea value={d.duvri_costs_clause || ''} onChange={(e) => setD('duvri_costs_clause', e.target.value)} style={{ minHeight: 56 }} placeholder={S.duvri_costs_default} /></Field>
           </div>
-          <div className="alert warn small" style={{ marginTop: 10 }}>Il pagamento resta a 30 giorni fine mese dalla consegna della fattura, entro il 10 del mese successivo (art. 5.2 del format). Il rinnovo tacito annuale e il recesso con 6 mesi di preavviso sono fissi nel format.</div>
+          <div className="alert warn small" style={{ marginTop: 10 }}>Il rinnovo tacito annuale e il recesso con 6 mesi di preavviso sono fissi nel format (art. 4).</div>
         </Card>
       </>}
 
@@ -244,7 +221,57 @@ function PrivacyCard({ d, setD, annex }) {
 function cleanData(kind, d) {
   const x = structuredClone(d);
   const num = (v) => (v === '' || v == null ? null : Number(v));
-  if (kind === 'PP') { x.fee.percent = num(x.fee.percent); x.fee.fixed_amount = num(x.fee.fixed_amount); x.fee.minimum_amount = num(x.fee.minimum_amount); x.duration_years = Number(x.duration_years || 3); }
+  if (kind === 'PP') { x.fee.items = (x.fee.items || []).map((it) => ({ ...it, percent: num(it.percent), amount: num(it.amount) })); x.duration_years = Number(x.duration_years || 3); }
   else { x.discount_percent = num(x.discount_percent); }
   return x;
+}
+
+// Condizioni del corrispettivo (art. 5.1): una riga per sotto-articolo, replicabili e riordinabili
+const NEW_ITEM = { kind: 'PERCENT', percent: '', base: 'PUNTO_PRELIEVI', base_other: '', include_ssr: false, amount: '', period: 'MESE', purpose: '', vat: 'PIU_IVA', closing: true, text: '' };
+function FeeItems({ items, onChange }) {
+  const set = (i, k, v) => onChange(items.map((it, j) => (j === i ? { ...it, [k]: v } : it)));
+  const move = (i, dir) => { const a = [...items]; const j = i + dir; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; onChange(a); };
+  return (
+    <div className="feeitems">
+      {items.map((it, i) => (
+        <div key={i} className="feeitem">
+          <div className="feeitem-n">5.1.{i + 1}</div>
+          <div className="feeitem-body">
+            <div className="feerow">
+              <Field label="Tipo"><select value={it.kind} onChange={(e) => set(i, 'kind', e.target.value)}>{Object.entries(FEE_KIND).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+              {it.kind === 'PERCENT' && <>
+                <Field label="Percentuale"><input type="number" step="0.01" min="0" max="100" value={it.percent ?? ''} onChange={(e) => set(i, 'percent', e.target.value)} /></Field>
+                <Field label="Base di calcolo"><select value={it.base} onChange={(e) => set(i, 'base', e.target.value)}>{Object.entries(FEE_BASE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                <Field label="IVA"><select value={it.vat} onChange={(e) => set(i, 'vat', e.target.value)}>{Object.entries(FEE_VAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+              </>}
+              {(it.kind === 'FIXED' || it.kind === 'MINIMUM') && <>
+                <Field label="Importo (€)"><MoneyInput value={it.amount} onChange={(v) => set(i, 'amount', v)} /></Field>
+                <Field label="Periodicità"><select value={it.period} onChange={(e) => set(i, 'period', e.target.value)}>{Object.entries(FEE_PERIOD).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+                <Field label="IVA"><select value={it.vat} onChange={(e) => set(i, 'vat', e.target.value)}>{Object.entries(FEE_VAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+              </>}
+            </div>
+            {it.kind === 'PERCENT' && it.base === 'ALTRO' && <Field label="Base di calcolo (testo in contratto, es. del fatturato generato dalle prestazioni di diagnostica per immagini)"><input value={it.base_other || ''} onChange={(e) => set(i, 'base_other', e.target.value)} /></Field>}
+            {(it.kind === 'FIXED' || it.kind === 'MINIMUM') && <Field label="Causale (es. per la concessione ad utilizzo esclusivo degli spazi posti al piano sotterraneo)"><input value={it.purpose || ''} onChange={(e) => set(i, 'purpose', e.target.value)} /></Field>}
+            <Field label={it.kind === 'TEXT' ? 'Testo della condizione' : 'Precisazione aggiuntiva (facoltativa, dopo la condizione)'}><textarea value={it.text || ''} onChange={(e) => set(i, 'text', e.target.value)} style={{ minHeight: 44 }} /></Field>
+            <div className="row" style={{ gap: 18 }}>
+              {it.kind === 'PERCENT' && <label className="f inline"><input type="checkbox" checked={Boolean(it.include_ssr)} onChange={(e) => set(i, 'include_ssr', e.target.checked)} /> ivi comprese le prestazioni effettuate a vantaggio del SSR</label>}
+              {it.kind !== 'TEXT' && <label className="f inline"><input type="checkbox" checked={Boolean(it.closing)} onChange={(e) => set(i, 'closing', e.target.checked)} /> chiudi con "remunerazione complessiva ed onnicomprensiva per la prestazione dei Servizi"</label>}
+            </div>
+          </div>
+          <div className="feeitem-tools">
+            <button type="button" className="iconbtn nav" title="Sposta su" disabled={i === 0} onClick={() => move(i, -1)}><Icon name="arrow" /></button>
+            <button type="button" className="iconbtn nav" title="Sposta giù" disabled={i === items.length - 1} onClick={() => move(i, 1)}><Icon name="arrow" /></button>
+            <button type="button" className="iconbtn" title="Rimuovi" onClick={() => onChange(items.filter((_, j) => j !== i))}><Icon name="trash" /></button>
+          </div>
+        </div>
+      ))}
+      <div className="row" style={{ gap: 8 }}>
+        <button type="button" className="btn sm ghost" onClick={() => onChange([...items, { ...NEW_ITEM }])}>+ % sul fatturato</button>
+        <button type="button" className="btn sm ghost" onClick={() => onChange([...items, { ...NEW_ITEM, kind: 'FIXED', closing: false }])}>+ Importo fisso</button>
+        <button type="button" className="btn sm ghost" onClick={() => onChange([...items, { ...NEW_ITEM, kind: 'MINIMUM', closing: false }])}>+ Minimo garantito</button>
+        <button type="button" className="btn sm ghost" onClick={() => onChange([...items, { ...NEW_ITEM, kind: 'TEXT', closing: false }])}>+ Condizione in testo libero</button>
+      </div>
+      <div className="small muted">Ogni riga diventa un sotto-articolo dell'art. 5.1 (5.1.1, 5.1.2, …) nell'ordine indicato. Il pagamento resta a 30 giorni fine mese dalla consegna della fattura, entro il 10 del mese successivo (art. 5.2).</div>
+    </div>
+  );
 }

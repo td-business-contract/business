@@ -366,8 +366,14 @@ label.btn { cursor: pointer; }
 .alert { display: block; }
 .alert b { margin-right: 4px; }
 
-/* Business: condizioni del corrispettivo */
-.feerow { display: grid; grid-template-columns: 170px repeat(3, max-content); gap: 12px; align-items: end; padding: 6px 0; border-bottom: 1px dashed var(--line); }
-.feerow > label.inline { padding-bottom: 10px; }
-.feerow > .small { padding-bottom: 12px; }
-@media (max-width: 860px) { .feerow { grid-template-columns: 1fr; } }
+/* Business: condizioni del corrispettivo (art. 5.1) */
+.feeitems { display: flex; flex-direction: column; gap: 10px; }
+.feeitem { display: grid; grid-template-columns: 54px 1fr auto; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fcfdfd; }
+.feeitem-n { font-family: var(--mono); font-weight: 700; color: var(--teal); padding-top: 26px; }
+.feeitem-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.feeitem-tools { display: flex; flex-direction: column; gap: 4px; }
+.feeitem-tools .iconbtn.nav:first-child svg { transform: rotate(-90deg); }
+.feeitem-tools .iconbtn.nav:nth-child(2) svg { transform: rotate(90deg); }
+.feerow { display: grid; grid-template-columns: 200px 130px minmax(220px, 1fr) 160px; gap: 12px; align-items: end; }
+.feerow label.f { min-width: 0; }
+@media (max-width: 860px) { .feerow { grid-template-columns: 1fr 1fr; } .feeitem { grid-template-columns: 1fr; } }

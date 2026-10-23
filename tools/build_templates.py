@@ -189,7 +189,7 @@ clone_after(P[37], '{#host_nursing}a garantire il servizio infermieristico per l
 set_text(P[52], 'Il Contratto ha durata di anni {duration_years} ({duration_years_words}), con decorrenza dal {start_date} (o in ogni data utile precedente), data di apertura del Punto Prelievi.')
 # il format rimanda all'Allegato 2 per i locali: i locali sono identificati nell'Allegato 1
 set_text(P[55], 'In caso di esercizio del diritto di recesso dal Contratto da parte della Società, quest’ultima, per una durata minima di 9 (nove) mesi dalla data di cessazione del rapporto, non potrà concedere i locali di cui all’Allegato 1 a soggetti terzi, per lo svolgimento di attività analoghe a quelle svolte da Toscana Diagnostica.')
-set_text(P[58], '{fee_clause} Detto corrispettivo costituisce una remunerazione complessiva ed onnicomprensiva per la prestazione dei Servizi da parte della Società.')
+set_text(P[58], '{-w:p fee_items}{text}{/fee_items}')
 set_text(P[94], 'quanto alla Società: {partner_name}, {partner_city} ({partner_prov}), {partner_street}, P.I. {partner_vat} e Codice Fiscale {partner_tax_code}, in persona del Sig. {partner_signer}{partner_pec_clause};')
 set_text(P[95], 'quanto a Toscana Diagnostica: {company_name_upper}, con sede legale in {company_legal_address}, in persona del suo legale rappresentante pro tempore {lr_title_name};')
 cell(d, 0, 0, 0, '{partner_name}'); cell(d, 0, 1, 0, '{partner_signer_role}'); cell(d, 0, 2, 0, '{partner_signer}')
