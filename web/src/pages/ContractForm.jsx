@@ -104,11 +104,11 @@ export default function ContractForm() {
           <div className="small muted" style={{ marginTop: 8 }}>Il comune indicato è anche il comune di esclusiva (art. 3.1, ultimo punto) e il destinatario della domanda di autorizzazione (Modello 5).</div>
         </Card>
         <Card title="Ripartizione dei servizi (art. 3)" className="mt">
-          <div className="form-grid">
+          <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', alignItems: 'end' }}>
             <Field label="Servizio infermieristico per i prelievi">
               <div className="seg">{[['TD', 'Toscana Diagnostica'], ['HOST', 'Struttura ospitante']].map(([v, l]) => <label key={v} className={(d.services?.nursing || 'TD') === v ? 'on' : ''}><input type="radio" checked={(d.services?.nursing || 'TD') === v} onChange={() => setD('services.nursing', v)} />{l}</label>)}</div>
             </Field>
-            <Field label="Accettazione, segreteria, consegna referti, incassi">
+            <Field label="Accettazione, segreteria, referti e incassi">
               <div className="seg">{[['HOST', 'Struttura ospitante'], ['TD', 'Toscana Diagnostica']].map(([v, l]) => <label key={v} className={(d.services?.reception || 'HOST') === v ? 'on' : ''}><input type="radio" checked={(d.services?.reception || 'HOST') === v} onChange={() => setD('services.reception', v)} />{l}</label>)}</div>
             </Field>
           </div>
